@@ -173,6 +173,8 @@ class MainActivity : Activity() {
         val lane = Spinner(this)
         lane.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, lanes)
         ui.addView(label("Qual posição você vai jogar?", 13, white, true))
+        lane.setSelection(listOf("Selva", "EXP", "Meio", "Ouro", "Roam")
+            .indexOf(prefs.getString("lane_hint", "Selva")).coerceAtLeast(0))
         ui.addView(lane)
         val allies = input("Aliados selecionados (separe por vírgulas)", "")
         val enemies = input("Inimigos revelados (separe por vírgulas)", "")
@@ -183,7 +185,11 @@ class MainActivity : Activity() {
             ui.addView(space(9))
         }
         val result = card()
-        result.addView(label("Preencha os campos e toque em sugerir.", 13, muted))
+        result.addView(label("SUGESTÕES INICIAIS POR FUNÇÃO (NÃO SÃO COUNTERS)", 12, cyan, true))
+        HeroCatalog.suggest(lane.selectedItem.toString(), "", "", "").take(3).forEachIndexed { index, pick ->
+            result.addView(label((index + 1).toString() + ". " + pick.hero, 17, gold, true))
+            result.addView(label(pick.reason, 12, white))
+        }
         ui.addView(button("SUGERIR 3 HERÓIS", true) {
             result.removeAllViews()
             val picks = HeroCatalog.suggest(lane.selectedItem.toString(), allies.text.toString(), enemies.text.toString(), favorites.text.toString())
