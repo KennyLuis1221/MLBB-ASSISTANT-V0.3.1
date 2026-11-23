@@ -1,7 +1,3 @@
-
-
-
-
 name: Gerar APK MLBB Assistant
 
 on:
@@ -35,11 +31,28 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Instalar Android SDK
-        uses: android-actions/setup-android@v3
+      # O runner ubuntu-latest já disponibiliza o Android SDK.
+      # Evita android-actions/setup-android@v3, que tenta baixar o pacote removido "tools".
+      - name: Verificar Android SDK do GitHub
+        shell: bash
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          test -d "$ANDROID_HOME"
+          if command -v sdkmanager >/dev/null 2>&1; then
+            sdkmanager --version
+          else
+            "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --version
+          fi
 
       - name: Instalar plataforma Android 35
-        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+        shell: bash
+        run: |
+          if command -v sdkmanager >/dev/null 2>&1; then
+            SDKMANAGER="$(command -v sdkmanager)"
+          else
+            SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          fi
+          "$SDKMANAGER" --install 'platforms;android-35' 'build-tools;35.0.0'
 
       - name: Preparar Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -56,7 +69,3 @@ jobs:
           name: MLBB-ASSISTANT-APK
           path: android-app/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
-
-
-
-
