@@ -1,0 +1,30 @@
+name: Limpar duas execucoes com erro
+
+on:
+  push:
+    paths:
+      - '.github/workflows/limpar-execucoes.yml'
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  limpar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Excluir apenas os dois runs que falharam
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          repo="${{ github.repository }}"
+          for run_id in 45173992266 45174765061; do
+            result="$(gh api "repos/$repo/actions/runs/$run_id" --jq '.conclusion')"
+            if [ "$result" != "failure" ]; then
+              echo "Execucao $run_id nao esta marcada como falha: $result"
+              exit 1
+            fi
+            gh api -X DELETE "repos/$repo/actions/runs/$run_id"
+            echo "Execucao com erro removida: $run_id"
+          done
