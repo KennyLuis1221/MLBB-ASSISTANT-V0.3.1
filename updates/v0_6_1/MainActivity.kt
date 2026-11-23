@@ -174,7 +174,7 @@ class MainActivity : Activity() {
         lane.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, lanes)
         ui.addView(label("Qual posição você vai jogar?", 13, white, true))
         lane.setSelection(listOf("Selva", "EXP", "Meio", "Ouro", "Roam")
-            .indexOf(prefs.getString("lane_hint", "Selva")).coerceAtLeast(0))
+            .indexOf(prefs.getString("lane_hint", "Selva") ?: "Selva").coerceAtLeast(0))
         ui.addView(lane)
         val allies = input("Aliados selecionados (separe por vírgulas)", "")
         val enemies = input("Inimigos revelados (separe por vírgulas)", "")
