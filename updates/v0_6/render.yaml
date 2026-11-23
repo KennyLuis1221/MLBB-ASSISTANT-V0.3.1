@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: mlbb-assistant-vision
+    runtime: docker
+    rootDir: server
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: MLBB_API_TOKEN
+        generateValue: true
+      - key: MLBB_VISION_ENABLED
+        value: "0"
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: MLBB_VISION_MODEL
+        value: "gpt-4.1-mini"
