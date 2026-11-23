@@ -68,7 +68,7 @@ class MainActivity : Activity() {
             setBackgroundColor(navy)
         }
         setContentView(ScrollView(this).apply {
-            fillViewport = true
+            isFillViewport = true
             setBackgroundColor(navy)
             addView(content)
         })
