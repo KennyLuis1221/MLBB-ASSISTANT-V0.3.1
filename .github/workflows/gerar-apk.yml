@@ -7,6 +7,7 @@ on:
       - 'MLBB_ASSISTANT_CODIGO_GITHUB.zip'
       - '.github/workflows/gerar-apk.yml'
       - 'updates/v0_4/**'
+      - 'updates/v0_5/**'
 
 permissions:
   contents: read
@@ -51,6 +52,48 @@ jobs:
           p.write_text(s, encoding="utf-8")
           PY
 
+      - name: Aplicar V0.5 com OCR local para uso sem servidor
+        shell: bash
+        run: |
+          cp updates/v0_5/MainActivity.kt android-app/app/src/main/java/com/mlbb/assistant/MainActivity.kt
+          cp updates/v0_5/OfflineTextAnalyzer.kt android-app/app/src/main/java/com/mlbb/assistant/OfflineTextAnalyzer.kt
+          python3 - <<'PY'
+          from pathlib import Path
+          service = Path("android-app/app/src/main/java/com/mlbb/assistant/ProjectionService.kt")
+          s = service.read_text(encoding="utf-8")
+          original = "    private var projection: MediaProjection? = null"
+          replacement = original + "\n    private val offlineAnalyzer by lazy { OfflineTextAnalyzer() }"
+          if original not in s or "OfflineTextAnalyzer" in s:
+              raise SystemExit("Fonte original inesperado para ProjectionService")
+          s = s.replace(original, replacement)
+          previous = "val result = UploadClient.analyze(url, token, jpeg, sessionId, heroHint, armor, healing, magic)"
+          replacement = (
+              "val result = if (url.isBlank()) {\n"
+              "                        offlineAnalyzer.analyze(jpeg, heroHint)\n"
+              "                    } else {\n"
+              "                        try {\n"
+              "                            UploadClient.analyze(url, token, jpeg, sessionId, heroHint, armor, healing, magic)\n"
+              "                        } catch (network: Exception) {\n"
+              "                            offlineAnalyzer.analyze(jpeg, heroHint).copy(\n"
+              "                                visionStatus = \"Servidor indisponível; OCR local experimental\"\n"
+              "                            )\n"
+              "                        }\n"
+              "                    }"
+          )
+          if previous not in s:
+              raise SystemExit("Chamada de rede antiga não encontrada")
+          s = s.replace(previous, replacement)
+          s = s.replace("        executor.shutdownNow()", "        executor.shutdownNow()\n        if (this::offlineAnalyzer.isInitialized) offlineAnalyzer.close()") if False else s
+          service.write_text(s, encoding="utf-8")
+          app = Path("android-app/app/build.gradle.kts")
+          gradle = app.read_text(encoding="utf-8")
+          if 'com.google.mlkit:text-recognition' not in gradle:
+              gradle += '\n\ndependencies {\n    implementation("com.google.mlkit:text-recognition:16.0.1")\n}\n'
+          gradle = gradle.replace("versionCode = 5", "versionCode = 6").replace('versionName = "0.4.0"', 'versionName = "0.5.0"')
+          app.write_text(gradle, encoding="utf-8")
+          print("V0.5 aplicado: captura local sem servidor, ML Kit OCR incluído")
+          PY
+
       - name: Configurar Java 17
         uses: actions/setup-java@v4
         with:
@@ -92,19 +135,19 @@ jobs:
       - name: Disponibilizar APK para download
         uses: actions/upload-artifact@v4
         with:
-          name: MLBB-ASSISTANT-APK
+          name: MLBB-ASSISTANT-V0.5-APK
           path: android-app/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
 
       - name: Empacotar fontes atualizadas
         shell: bash
         run: |
-          cp updates/v0_4/README.md README_V0_4.md
-          zip -q -r MLBB_ASSISTANT_V0_4_SOURCE.zip android-app server README_V0_4.md
+          cp updates/v0_5/README.md README_V0_5.md
+          zip -q -r MLBB_ASSISTANT_V0_5_SOURCE.zip android-app server README_V0_5.md
 
       - name: Disponibilizar codigo-fonte atualizado
         uses: actions/upload-artifact@v4
         with:
-          name: MLBB-ASSISTANT-V0.4-FONTES
+          name: MLBB-ASSISTANT-V0.5-FONTES
           path: MLBB_ASSISTANT_V0_4_SOURCE.zip
           if-no-files-found: error
