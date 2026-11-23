@@ -19,7 +19,7 @@ jobs:
         run: |
           set -euo pipefail
           repo="${{ github.repository }}"
-          for run_id in 45173992266 45174765061; do
+          for run_id in 45179514207 45179561617; do
             result="$(gh api "repos/$repo/actions/runs/$run_id" --jq '.conclusion')"
             if [ "$result" != "failure" ]; then
               echo "Execucao $run_id nao esta marcada como falha: $result"
