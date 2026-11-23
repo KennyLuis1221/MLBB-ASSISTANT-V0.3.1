@@ -25,6 +25,24 @@ jobs:
           unzip -q MLBB_ASSISTANT_CODIGO_GITHUB.zip
           test -f android-app/app/build.gradle.kts
 
+      - name: Corrigir assinatura dos botoes Kotlin V0.3.1
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("android-app/app/src/main/java/com/mlbb/assistant/MainActivity.kt")
+          s = p.read_text(encoding="utf-8")
+          old_signature = "private fun button(label: String, action: () -> Unit, gold: Boolean = false)"
+          new_signature = "private fun button(label: String, gold: Boolean = false, action: () -> Unit)"
+          old_call = 'button("▶  Iniciar análise e painel") { startCapture() }, gold = true'
+          new_call = 'button("▶  Iniciar análise e painel", gold = true) { startCapture() }'
+          if old_signature not in s or old_call not in s:
+              raise SystemExit("Versao do projeto inesperada: ajuste Kotlin nao aplicado")
+          s = s.replace(old_signature, new_signature).replace(old_call, new_call)
+          p.write_text(s, encoding="utf-8")
+          print("Botoes Kotlin corrigidos")
+          PY
+
       - name: Configurar Java 17
         uses: actions/setup-java@v4
         with:
