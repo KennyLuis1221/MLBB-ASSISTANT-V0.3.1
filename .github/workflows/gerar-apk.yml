@@ -6,6 +6,7 @@ on:
     paths:
       - 'MLBB_ASSISTANT_CODIGO_GITHUB.zip'
       - '.github/workflows/gerar-apk.yml'
+      - 'updates/v0_4/**'
 
 permissions:
   contents: read
@@ -25,22 +26,29 @@ jobs:
           unzip -q MLBB_ASSISTANT_CODIGO_GITHUB.zip
           test -f android-app/app/build.gradle.kts
 
-      - name: Corrigir assinatura dos botoes Kotlin V0.3.1
+      - name: Aplicar V0.4 e validar catalogo
         shell: bash
         run: |
+          cp updates/v0_4/MainActivity.kt android-app/app/src/main/java/com/mlbb/assistant/MainActivity.kt
+          cp updates/v0_4/HeroCatalog.kt android-app/app/src/main/java/com/mlbb/assistant/HeroCatalog.kt
+          cp updates/v0_4/multihero_engine.py server/multihero_engine.py
+          cp updates/v0_4/test_multihero.py server/test_multihero.py
+          python3 updates/v0_4/export_heroes.py
+          python3 updates/v0_4/patch_server.py
+          python3 -m py_compile server/app.py server/multihero_engine.py server/vision_bridge.py
+          PYTHONPATH=server python3 - <<'PY'
+          from multihero_engine import CATALOG, recommend_multi, suggest_draft
+          assert len(CATALOG) >= 120, len(CATALOG)
+          assert recommend_multi("Layla", [], True, False, False)["recommendations"][0]["item"] == "Malefic Roar"
+          assert recommend_multi("Kagura", [], False, False, False)["recommendations"]
+          assert len(suggest_draft("Ouro", [], [], ["Beatrix", "Brody"])) == 3
+          print("Validado:", len(CATALOG), "herois")
+          PY
           python3 - <<'PY'
           from pathlib import Path
-          p = Path("android-app/app/src/main/java/com/mlbb/assistant/MainActivity.kt")
-          s = p.read_text(encoding="utf-8")
-          old_signature = "private fun button(label: String, action: () -> Unit, gold: Boolean = false)"
-          new_signature = "private fun button(label: String, gold: Boolean = false, action: () -> Unit)"
-          old_call = 'button("▶  Iniciar análise e painel") { startCapture() }, gold = true'
-          new_call = 'button("▶  Iniciar análise e painel", gold = true) { startCapture() }'
-          if old_signature not in s or old_call not in s:
-              raise SystemExit("Versao do projeto inesperada: ajuste Kotlin nao aplicado")
-          s = s.replace(old_signature, new_signature).replace(old_call, new_call)
+          p = Path("android-app/app/build.gradle.kts")
+          s = p.read_text(encoding="utf-8").replace('versionCode = 4', 'versionCode = 5').replace('versionName = "0.3.1"', 'versionName = "0.4.0"')
           p.write_text(s, encoding="utf-8")
-          print("Botoes Kotlin corrigidos")
           PY
 
       - name: Configurar Java 17
@@ -86,4 +94,17 @@ jobs:
         with:
           name: MLBB-ASSISTANT-APK
           path: android-app/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+      - name: Empacotar fontes atualizadas
+        shell: bash
+        run: |
+          cp updates/v0_4/README.md README_V0_4.md
+          zip -q -r MLBB_ASSISTANT_V0_4_SOURCE.zip android-app server README_V0_4.md
+
+      - name: Disponibilizar codigo-fonte atualizado
+        uses: actions/upload-artifact@v4
+        with:
+          name: MLBB-ASSISTANT-V0.4-FONTES
+          path: MLBB_ASSISTANT_V0_4_SOURCE.zip
           if-no-files-found: error
