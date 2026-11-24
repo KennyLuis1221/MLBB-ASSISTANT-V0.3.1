@@ -1,0 +1,75 @@
+--- a/server/app.py
++++ b/server/app.py
+@@ -23,6 +23,7 @@
+ 
+ import vision_bridge
+ import cloud_sessions
++import strategy_live
+ from multihero_engine import recommend_multi, roles_for, suggest_draft
+ 
+ ROOT = Path(__file__).parent
+@@ -66,7 +67,7 @@
+ async def production_guard(request: Request, call_next):
+     if os.getenv("MLBB_DEPLOYMENT")=="production" and request.method=="POST":
+         path=request.url.path.rstrip("/")
+-        if path in {"/analyze","/recommend","/draft","/session"}:
++        if path in {"/analyze","/recommend","/draft","/session","/strategy"}:
+             if path!="/session":
+                 try:
+                     require_authorization(request,request.headers.get("authorization"))
+@@ -160,6 +161,7 @@
+ @app.get("/health")
+ def health():
+     return {"status": "ok", "version": "0.7.2", "vision": "online" if vision_bridge.online_ready() else "disabled",
++            "strategy": "available" if strategy_live.gemini_free.ready() else "disabled",
+             "vision_verified": False, "provider": "gemini-free-project" if os.getenv("MLBB_DEPLOYMENT")=="production" else "development", "sessions_enabled": cloud_sessions.enabled() and vision_bridge.online_ready(),
+             "templates": len(list(TEMPLATES.glob("*/*.png"))) if TEMPLATES.exists() else 0,
+             "data_patch": "perfis experimentais e fallback por classe; patch não validado"}
+@@ -170,6 +172,11 @@
+     if not vision_bridge.online_ready():
+         raise HTTPException(503,"Visão não configurada")
+     return cloud_sessions.issue(request.client.host if request.client else "unknown")
++
++@app.post("/strategy", dependencies=[Depends(require_authorization)], response_model=strategy_live.Supplement)
++async def strategy_endpoint(evidence: strategy_live.Evidence):
++    return await strategy_live.analyze(evidence)
++
+ 
+ @app.post("/recommend", dependencies=[Depends(require_authorization)])
+ def recommend_endpoint(state: MatchState):
+--- a/server/gemini_free.py
++++ b/server/gemini_free.py
+@@ -22,15 +22,27 @@
+             raise RuntimeError("Cota de visão gratuita esgotada; análise local")
+         _calls+=1
+ async def read(image,content_type,prompt,schema,model_type):
+-    global _block_until
+-    if not ready():raise RuntimeError("Projeto gratuito não confirmado")
+     if content_type not in ("image/jpeg","image/png") or not 0<len(image)<=2_500_000:
+         raise ValueError("Imagem inválida")
++    return await generate(
++        [{"text": prompt}, {"inlineData": {"mimeType": content_type, "data": base64.b64encode(image).decode("ascii")}}],
++        schema, model_type, max_tokens=3000,
++    )
++
++async def generate(parts, schema, model_type, *, max_tokens):
++    global _block_until
++    if not ready():
++        raise RuntimeError("Projeto gratuito não confirmado")
+     reserve()
+-    payload={"contents":[{"role":"user","parts":[{"text":prompt},
+-         {"inlineData":{"mimeType":content_type,"data":base64.b64encode(image).decode("ascii")}}]}],
+-         "generationConfig":{"responseMimeType":"application/json","responseJsonSchema":schema,
+-                             "maxOutputTokens":3000,"temperature":0.1}}
++    payload = {
++        "contents": [{"role": "user", "parts": parts}],
++        "generationConfig": {
++            "responseMimeType": "application/json",
++            "responseJsonSchema": schema,
++            "maxOutputTokens": max_tokens,
++            "temperature": 0.1,
++        },
++    }
+     async with httpx.AsyncClient(timeout=httpx.Timeout(30,connect=5),follow_redirects=False) as client:
+         r=await client.post("https://generativelanguage.googleapis.com/v1beta/models/"+MODEL+":generateContent",
+               headers={"x-goog-api-key":os.environ["GEMINI_API_KEY"]},json=payload)
