@@ -118,9 +118,9 @@ object Combat132 {
   val d=when(type){Damage.PHYSICAL->s.pdef;Damage.MAGIC->s.mdef;Damage.TRUE->0.0}?:return null
   return hp/mitigate(1.0,type,d)
  }
- fun combo(hits:List<Hit>,a:Stats,d:Stats,shield:Double=0.0):Estimate?{
+ fun combo(hits:List<Hit>,a:Stats,d:Stats,shield:Double=0.0,magicShieldActive:Boolean=false):Estimate?{
   val hp=d.hp?:return null
-  val damages=hits.map{hit(it,a,d)?:return null}
+  val damages=hits.map{h->val v=hit(h,a,d)?:return null;if(h.type==Damage.MAGIC)activeMagicShield(v,d,magicShieldActive)else v}
   return healthAfter(damages.sum(),hp,shield)
  }
  /** Conditional deterministic basic-attack DPS: caller supplies actual attacks/sec. */

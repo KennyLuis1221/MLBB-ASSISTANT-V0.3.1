@@ -29,12 +29,14 @@ rep(p,'    private fun showDatabase() {','''    private fun showCombat() {
         val magic=input("Dano mágico bruto por hit (opcional)","1000")
         val trueDmg=input("Dano verdadeiro bruto (opcional)","")
         val hits=input("Número de hits de cada tipo","1")
+        val sequence=input("Combo de eventos: índices separados por vírgula (opcional)","")
+        val magicGuard=check("Ativar redução mágica temporária de Valkyrie's Shield no alvo")
         val shield=input("Escudo inicial do alvo","0")
         val rate=input("Ataques por segundo conhecidos (opcional)","")
         val heal=input("Cura bruta recebida (opcional)","")
         val anti=check("Lifebane ativo no alvo")
-        for(v in listOf(hero,enemy,level,enemyLevel,items,enemyItems,physical,magic,trueDmg,hits,shield,rate,heal))ui.addView(v)
-        ui.addView(anti)
+        for(v in listOf(hero,enemy,level,enemyLevel,items,enemyItems,physical,magic,trueDmg,hits,sequence,shield,rate,heal))ui.addView(v)
+        ui.addView(anti);ui.addView(magicGuard)
         val out=card()
         ui.addView(button("CALCULAR"){
             out.removeAllViews()
@@ -57,7 +59,23 @@ rep(p,'    private fun showDatabase() {','''    private fun showCombat() {
                 }
             }
             fun fmt(v:Double?)=v?.let{String.format(java.util.Locale.US,"%.1f",it)}?:"não disponível"
-            val result=Combat132.combo(events,a,d,sh)
+            val extracted=Combat132.events(db,h!!.name)
+            val sequenceText=sequence.text.toString().trim()
+            if(sequenceText.isNotBlank()){
+                val indices=sequenceText.split(",",";").map{it.trim().toIntOrNull()}
+                if(indices.size>30||indices.any{it==null||it !in 1..extracted.size}){
+                    out.addView(label("Confira os índices da lista de eventos; máximo 30.",12,muted))
+                }else{
+                    val chosen=indices.map{extracted[it!!-1]}
+                    val rawEvents=chosen.map{ev->Combat132.raw(ev,a)?.let{Combat132.Hit(it,ev.type)}}
+                    if(rawEvents.any{it==null})out.addView(label("Combo indisponível: atributo de escalamento ausente.",12,muted))
+                    else {
+                        val combo=Combat132.combo(rawEvents.filterNotNull(),a,d,sh,magicGuard.isChecked)
+                        out.addView(label("Sequência condicional informada: "+fmt(combo?.damage)+" de dano • "+chosen.joinToString(" → "){it.skill},13,cyan,true))
+                    }
+                }
+            }
+            val result=Combat132.combo(events,a,d,sh,magicGuard.isChecked)
             out.addView(label("Dano total: "+fmt(result?.damage)+" • HP retirado: "+fmt(result?.healthDamage)+" • HP restante: "+fmt(result?.hpLeft),17,gold,true))
             out.addView(label("Ataque físico "+fmt(a.physical)+" • poder mágico "+fmt(a.magic)+" • crítico "+fmt(a.crit)+"% • CDR "+fmt(a.cooldown)+"%",13,white))
             out.addView(label("HP alvo "+fmt(d.hp)+" • defesa física "+fmt(d.pdef)+" • defesa mágica "+fmt(d.mdef),13,white))
@@ -67,9 +85,9 @@ rep(p,'    private fun showDatabase() {','''    private fun showCombat() {
             }
             heal.text.toString().toDoubleOrNull()?.takeIf{it.isFinite()&&it>=0}?.let{out.addView(label("Cura recebida no cenário: "+fmt(Combat132.shieldOrHeal(it,d,anti.isChecked)),13,white))}
             out.addView(label("EVENTOS DE HABILIDADE EXTRAÍDOS • valores da descrição, não ranks calculados",12,cyan,true))
-            for(ev in Combat132.events(db,h!!.name)){
+            for((idx,ev) in extracted.withIndex()){
                 val raw=Combat132.raw(ev,a)
-                out.addView(label(ev.skill+" • "+ev.type+" • bruto "+fmt(raw)+" • mitigado "+fmt(raw?.let{Combat132.hit(Combat132.Hit(it,ev.type),a,d)})+(if(ev.conditional)" • condicional" else " • evento isolado"),11,white))
+                out.addView(label((idx+1).toString()+". "+ev.skill+" • "+ev.type+" • bruto "+fmt(raw)+" • mitigado "+fmt(raw?.let{Combat132.hit(Combat132.Hit(it,ev.type),a,d)})+(if(ev.conditional)" • condicional" else " • evento isolado"),11,white))
             }
             out.addView(label("Efeitos não simulados: "+(a.unmodeled+d.unmodeled).distinct().joinToString("; "),11,muted))
         })
