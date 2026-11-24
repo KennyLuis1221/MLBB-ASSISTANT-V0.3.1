@@ -43,7 +43,7 @@ rep(p,'val score=es.sumOf','''val team=db.heroes.values.filter{it.name in a}
       (if(team.isNotEmpty()&&team.none{it.damage=="Physical"}&&h.damage=="Physical")2.0 else 0.0)
     val score=balance+es.sumOf''')
 rep(p,'add("Função "+lane+"; dados "+db.date)','add("Função "+lane+"; ranque "+rank+"; dados "+db.date)\n     if(balance>0)add("complementa a composição")')
-rep(p,'i.name=="Valkyrie\\'s Shield"||ItemReference.byName[i.name]?.tier==3','i.name in setOf("Valkyrie\\'s Shield","Twilight Armor")||ItemReference.byName[i.name]?.tier==3')
+rep(p,'i.name=="Valkyrie\'s Shield"||ItemReference.byName[i.name]?.tier==3','i.name in setOf("Valkyrie\'s Shield","Twilight Armor")||ItemReference.byName[i.name]?.tier==3')
 # Replace old greedy economy with exact allocation and slot-safe actions.
 q=b/p;s=q.read_text();start=s.index('  val item=db.items[target]');end=s.index('\n fun recommend(',start)
 s=s[:start]+'''  val name=db.canonicalItem(target)?:return Buy(target,null,null,"Equipamento desconhecido.")
