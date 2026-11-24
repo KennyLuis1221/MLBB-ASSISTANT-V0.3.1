@@ -33,6 +33,38 @@
      return cloud_sessions.issue(request.client.host if request.client else "unknown")
  
  @app.post("/strategy", dependencies=[Depends(require_authorization)], response_model=strategy_live.Supplement)
+--- a/server/gemini_free.py
++++ b/server/gemini_free.py
+@@ -1,7 +1,8 @@
+ """Gemini free-project adapter. No paid fallback in production. No request/secret logging."""
+-import base64,json,os,time,threading
++import base64,json,logging,os,time,threading
+ import httpx
+ MODEL="gemini-3.5-flash-lite"
++logger = logging.getLogger(__name__)
+ _lock=threading.Lock()
+ _day=-1
+ _calls=0
+@@ -46,13 +47,18 @@
+     async with httpx.AsyncClient(timeout=httpx.Timeout(30,connect=5),follow_redirects=False) as client:
+         r=await client.post("https://generativelanguage.googleapis.com/v1beta/models/"+MODEL+":generateContent",
+               headers={"x-goog-api-key":os.environ["GEMINI_API_KEY"]},json=payload)
++        if r.status_code != 200:
++            logger.warning("Gemini returned HTTP %d", r.status_code)
+         if r.status_code==429:
+             with _lock:_block_until=time.time()+3600
+             raise RuntimeError("Cota do provedor esgotada")
+         if r.status_code!=200:raise RuntimeError("Provedor visual indisponível: HTTP "+str(r.status_code))
+         body=r.json()
+     candidates=body.get("candidates",[])
+-    if not candidates or candidates[0].get("finishReason") not in (None,"STOP"):
++    finish = candidates[0].get("finishReason") if candidates else None
++    if not candidates or finish not in (None, "STOP"):
++        reason = finish if finish in ("MAX_TOKENS", "SAFETY", "RECITATION", "OTHER") else "no_valid_candidate"
++        logger.warning("Gemini response incomplete: %s", reason)
+         raise ValueError("Observação incompleta")
+     text="".join(p.get("text","") for p in candidates[0].get("content",{}).get("parts",[]) if not p.get("thought"))
+     return model_type.model_validate(json.loads(text))
 --- a/server/strategy_live.py
 +++ b/server/strategy_live.py
 @@ -1,6 +1,9 @@
