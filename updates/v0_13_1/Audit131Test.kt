@@ -10,6 +10,8 @@ class Audit131Test {
   assertEquals(532,d.skills.values.sumOf{it.size})
   assertTrue(d.skills.values.flatten().all{it.description.isNotBlank()})
   assertTrue(d.items.values.all{i->i.recipe.all{it in d.items}})
+  assertTrue(d.builds.values.flatten().any{it.type=="guide"&&it.items.size>=6})
+  assertTrue(d.builds.values.flatten().any{it.emblem.isNotBlank()&&it.spell.isNotBlank()})
   assertTrue(d.counters.keys.map{it.third}.containsAll(listOf("all","epic","legend","mythic","honor","glory")))
   assertTrue(Strategy13.eligible(d,d.items.getValue("Twilight Armor")))
   for(i in d.items.values.filter{(it.price?:0)>0}){

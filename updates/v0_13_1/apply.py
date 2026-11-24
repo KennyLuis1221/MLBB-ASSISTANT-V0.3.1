@@ -143,3 +143,22 @@ rep("Strategy13.kt",'if(i.category=="Defense"&&tankRole)bonus(8.0,"função de l
      val cost=Recipe131.quote(db,i.name,owned,null)?.cost
      if(cost!=null&&cost<=s.budget)bonus(4.0,"custo estimado cabe no saldo informado")
    }''')
+
+# Import full player guides separately from measured key-item builds.
+rep("GameData13.kt",'val items:List<String>)\n data class Gap','val items:List<String>,val emblem:String="",val talents:List<String> = emptyList(),val spell:String="",val winRate:Double?=null)\n data class Gap')
+rep("GameData13.kt",'a[5].toDoubleOrNull()?:0.0,list(a[6])))','a[5].toDoubleOrNull()?:0.0,list(a[6]),a.getOrElse(7){""},list(a.getOrElse(8){""}),a.getOrElse(9){""},a.getOrNull(10)?.toDoubleOrNull()))')
+# Ensure both measured seeds and full guides inform the candidate list.
+rep("Strategy13.kt",'val seeds=builds.sortedWith(compareBy<GameData13.Build>{if(it.rank=="all")0 else 1}.thenBy{if(it.type=="played")0 else 1}.thenByDescending{it.frequency}).take(8)','''val seeds=(builds.filter{it.type=="played"}.sortedByDescending{it.frequency}.take(6)+
+    builds.filter{it.type=="guide"}.take(4)).ifEmpty{builds.take(8)}''')
+# Expose true reference records separately from generated candidate builds.
+rep("MainActivity.kt",'result.addView(label(advice.profile,12,muted))','''result.addView(label(advice.profile,12,muted))
+            val desiredLane=mapOf("Selva" to "Jungle","EXP" to "Exp","Meio" to "Mid","Ouro" to "Gold","Roam" to "Roam")[pos.selectedItem.toString()]
+            val ref=db.builds[hero].orEmpty().filter{it.rank==ranks.selectedItem.toString()&&(desiredLane==null||it.lane==desiredLane)}
+            val played=ref.filter{it.type=="played"}.maxByOrNull{it.frequency}
+            val guide=ref.firstOrNull{it.type=="guide"}
+            for(b in listOfNotNull(played,guide)){
+                result.addView(label(if(b.type=="guide")"GUIA DE JOGADOR • NÃO É TAXA MEDIDA" else "ITENS-CHAVE OBSERVADOS",12,cyan,true))
+                result.addView(label(b.items.joinToString(" → "),12,white))
+                result.addView(label("Emblema: "+b.emblem.ifBlank{"não informado"}+" • Talentos: "+b.talents.joinToString(", ").ifBlank{"não informados"}+" • Feitiço: "+b.spell.ifBlank{"não informado"},12,muted))
+                if(b.type=="played"&&b.winRate!=null)result.addView(label("Vitórias de referência: "+b.winRate+"% • não é previsão desta partida.",11,muted))
+            }''')

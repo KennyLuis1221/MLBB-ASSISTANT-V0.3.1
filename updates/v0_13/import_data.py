@@ -56,14 +56,16 @@ for slug,lanes in d["builds"].items():
             for b in arr[:3]:
                 names=list(dict.fromkeys(n for i in b.get("items",[]) if (n:=norm(i))))
                 if names:
-                    add("B",slugs[slug],lane,rank,"played",b.get("pickRate") or 0,"|".join(names));counts["played_builds"]+=1
-for slug,byrank in d.get("guides",{}).items():
-    if slug not in slugs:continue
-    for rank,b in byrank.items():
-        if rank not in ("all","epic","legend","mythic","honor","glory") or not isinstance(b,dict):continue
-        names=list(dict.fromkeys(n for i in b.get("items",[]) if (n:=norm(i))))
-        if names:
-            add("B",slugs[slug],"",rank,"guide",0,"|".join(names));counts["guide_builds"]+=1
+                    add("B",slugs[slug],lane,rank,"played",b.get("pickRate") or 0,"|".join(names),b.get("emblem") or "","|".join(map(str,b.get("talents") or [])),b.get("spell") or "",b.get("winRate") if finite(b.get("winRate")) else "");counts["played_builds"]+=1
+for slug,lanes in d.get("guides",{}).items():
+    if slug not in slugs or not isinstance(lanes,dict):continue
+    for lane,byrank in lanes.items():
+        if not isinstance(byrank,dict):continue
+        for rank,b in byrank.items():
+            if rank not in ("all","epic","legend","mythic","honor","glory") or not isinstance(b,dict):continue
+            names=list(dict.fromkeys(n for i in b.get("items",[]) if (n:=norm(i))))
+            if names:
+                add("B",slugs[slug],lane,rank,"guide",0,"|".join(names),b.get("emblem") or "","|".join(map(str,b.get("talents") or [])),b.get("spell") or "","");counts["guide_builds"]+=1
 assert len(slugs)==133 and len(items)>=100
 assert counts["counter_rows"]>0 and counts["played_builds"]>0,counts
 p.write_text("\n".join("\t".join(r) for r in rows)+"\n"+Path("updates/v0_13_1/effects.tsv").read_text(encoding="utf-8"),encoding="utf-8")
