@@ -277,6 +277,9 @@ jobs:
           cp updates/v0_16/Effects16.kt android-app/app/src/main/java/com/mlbb/assistant/
           cp updates/v0_16/Effects16Test.kt android-app/app/src/test/java/com/mlbb/assistant/
           python3 updates/v0_16/apply.py
+          cp updates/v0_16/Panel16.kt android-app/app/src/main/java/com/mlbb/assistant/
+          cp updates/v0_16/Panel16Test.kt android-app/app/src/test/java/com/mlbb/assistant/
+          python3 updates/v0_16/apply_panel.py
           python3 updates/v0_14/audit_data.py
       - name: Configurar Java 17
         uses: actions/setup-java@v4
