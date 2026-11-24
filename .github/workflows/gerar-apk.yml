@@ -254,6 +254,9 @@ jobs:
           cp updates/v0_13_1/Recipe131.kt updates/v0_13_1/Manual131.kt android-app/app/src/main/java/com/mlbb/assistant/
           cp updates/v0_13_1/Audit131Test.kt android-app/app/src/test/java/com/mlbb/assistant/
           python3 updates/v0_13_1/apply.py
+          python3 -m pip install Pillow
+          python3 updates/v0_13_1/complete_refs.py
+          python3 updates/v0_13_1/apply_refs.py
           cp updates/v0_13_1/README.md android-app/app/src/main/assets/AUDIT_131.md
       - name: Testar HTTPS do servidor publicado
         continue-on-error: true
