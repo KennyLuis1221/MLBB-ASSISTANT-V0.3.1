@@ -17,6 +17,9 @@ class Combat132Test {
   val a=Combat132.stats(d,"Layla",15,listOf("Blade of Despair"))!!
   val b=Combat132.stats(d,"Layla",15,emptyList())!!
   assertEquals(160.0,a.physical!!-b.physical!!,1e-8)
+  val k=Combat132.stats(d,"Kimmy",15,listOf("Swift Boots"))!!
+  assertEquals(15.0,k.magic,1e-8)
+  assertEquals(0.0,k.speedBonus,1e-8)
   val c=Combat132.stats(d,"Layla",15,listOf("Golden Staff","Berserker's Fury"))!!
   assertEquals(0.0,c.crit,1e-8)
   assertEquals(40.0,c.speedBonus,1e-8)
@@ -32,9 +35,15 @@ class Combat132Test {
   val target=Combat132.stats(d,"Tigreal",15,emptyList())!!
   val x=Combat132.combo(listOf(Combat132.Hit(100.0,Combat132.Damage.TRUE,3)),a,target)!!
   assertEquals(300.0,x.damage,1e-8)
+  val oracle=Combat132.stats(d,"Tigreal",15,listOf("Oracle"))!!
+  assertEquals(750.0,Combat132.shieldOrHeal(1000.0,oracle,true),1e-8)
+  val shield=Combat132.stats(d,"Tigreal",15,listOf("Valkyrie\'s Shield"))!!
+  assertEquals(750.0,Combat132.activeMagicShield(1000.0,shield,true),1e-8)
   val count=d.heroes.keys.count{Combat132.events(d,it).isNotEmpty()}
   println("COMBAT132_EVENT_HEROES="+count+" / "+d.heroes.size+" EVENTS="+d.heroes.keys.sumOf{Combat132.events(d,it).size})
-  assertTrue(count>80)
+  assertEquals(133,count)
+  assertTrue(Combat132.events(d,"Cecilion").any{it.terms.size==2})
+  assertTrue(Combat132.events(d,"Marcel").any{it.terms.size==3})
  }
  @Test fun teamsAndLoadouts(){
   val d=db()

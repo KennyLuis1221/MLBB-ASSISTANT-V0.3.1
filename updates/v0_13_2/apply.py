@@ -65,7 +65,7 @@ rep(p,'    private fun showDatabase() {','''    private fun showCombat() {
             rate.text.toString().toDoubleOrNull()?.takeIf{it in 0.0..10.0}?.let{r->
                 a.physical?.let{out.addView(label("DPS físico básico hipotético (taxa informada): "+fmt(Combat132.dps(it,r,a,d,Combat132.Damage.PHYSICAL)),13,white))}
             }
-            heal.text.toString().toDoubleOrNull()?.takeIf{it.isFinite()&&it>=0}?.let{out.addView(label("Cura recebida no cenário: "+fmt(Combat132.heal(it,0.0,anti.isChecked)),13,white))}
+            heal.text.toString().toDoubleOrNull()?.takeIf{it.isFinite()&&it>=0}?.let{out.addView(label("Cura recebida no cenário: "+fmt(Combat132.shieldOrHeal(it,d,anti.isChecked)),13,white))}
             out.addView(label("EVENTOS DE HABILIDADE EXTRAÍDOS • valores da descrição, não ranks calculados",12,cyan,true))
             for(ev in Combat132.events(db,h!!.name)){
                 val raw=Combat132.raw(ev,a)
