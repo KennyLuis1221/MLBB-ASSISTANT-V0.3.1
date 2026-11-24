@@ -259,6 +259,9 @@ jobs:
           cp updates/v0_14/Loadout14.kt updates/v0_14/Timeline14.kt updates/v0_14/Draft14.kt android-app/app/src/main/java/com/mlbb/assistant/
           cp updates/v0_14/Development14Test.kt android-app/app/src/test/java/com/mlbb/assistant/
           python3 updates/v0_14/apply.py
+          cp updates/v0_14/Evidence14.kt android-app/app/src/main/java/com/mlbb/assistant/
+          cp updates/v0_14/Evidence14Test.kt android-app/app/src/test/java/com/mlbb/assistant/
+          python3 updates/v0_14/apply_evidence.py
       - name: Configurar Java 17
         uses: actions/setup-java@v4
         with:
