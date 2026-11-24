@@ -270,6 +270,9 @@ jobs:
           cp updates/v0_15/Fields15Test.kt android-app/app/src/test/java/com/mlbb/assistant/
           python3 updates/v0_15/apply_fields.py
           python3 updates/v0_15/patch_data.py
+          cp updates/v0_15/Team15.kt android-app/app/src/main/java/com/mlbb/assistant/
+          cp updates/v0_15/Team15Test.kt android-app/app/src/test/java/com/mlbb/assistant/
+          python3 updates/v0_15/apply_team.py
           python3 updates/v0_14/audit_data.py
       - name: Configurar Java 17
         uses: actions/setup-java@v4
