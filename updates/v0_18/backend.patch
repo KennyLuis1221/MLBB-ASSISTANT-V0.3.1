@@ -1,0 +1,321 @@
+--- a/server/app.py
++++ b/server/app.py
+@@ -30,7 +30,7 @@
+ DB = json.loads((ROOT / "data.json").read_text(encoding="utf-8"))
+ TEMPLATES = ROOT / "templates"
+ VERIFIED_ICON_NAMES={x.casefold() for x in json.loads((ROOT/"items_reference.json").read_text())}|{x.casefold() for x in DB["items"]}|{"blade of despair"}
+-app = FastAPI(title="MLBB Assistant", version="0.7.2", docs_url=None if os.getenv("MLBB_DEPLOYMENT")=="production" else "/docs", redoc_url=None if os.getenv("MLBB_DEPLOYMENT")=="production" else "/redoc", openapi_url=None if os.getenv("MLBB_DEPLOYMENT")=="production" else "/openapi.json")
++app = FastAPI(title="MLBB Assistant", version="0.18.0", docs_url=None if os.getenv("MLBB_DEPLOYMENT")=="production" else "/docs", redoc_url=None if os.getenv("MLBB_DEPLOYMENT")=="production" else "/redoc", openapi_url=None if os.getenv("MLBB_DEPLOYMENT")=="production" else "/openapi.json")
+ ITEM_NAME = {name.casefold(): name for name in DB["items"]}
+ ITEM_ALIASES = {name.lower().replace(" ", "_"): name for name in DB["items"]}
+ # Somente itens de defesa FÍSICA — item mágico não comprova armadura.
+@@ -160,17 +160,19 @@
+ 
+ @app.get("/health")
+ def health():
+-    return {"status": "ok", "version": "0.7.2", "vision": "online" if vision_bridge.online_ready() else "disabled",
++    return {"status": "ok", "version": "0.18.0", "vision": "online" if vision_bridge.online_ready() else "disabled",
+             "strategy": "available" if strategy_live.gemini_free.ready() else "disabled",
+-            "vision_verified": False, "provider": "gemini-free-project" if os.getenv("MLBB_DEPLOYMENT")=="production" else "development", "sessions_enabled": cloud_sessions.enabled() and vision_bridge.online_ready(),
++            "strategy_contract": strategy_live.CONTRACT,
++            "commit": os.getenv("RENDER_GIT_COMMIT"),
++            "vision_verified": False, "provider": "gemini-free-project" if os.getenv("MLBB_DEPLOYMENT")=="production" else "development", "sessions_enabled": cloud_sessions.enabled() and (vision_bridge.online_ready() or strategy_live.gemini_free.ready()),
+             "templates": len(list(TEMPLATES.glob("*/*.png"))) if TEMPLATES.exists() else 0,
+             "data_patch": "perfis experimentais e fallback por classe; patch não validado"}
+ 
+ 
+ @app.post("/session")
+ def issue_session(request: Request):
+-    if not vision_bridge.online_ready():
+-        raise HTTPException(503,"Visão não configurada")
++    if not vision_bridge.online_ready() and not strategy_live.gemini_free.ready():
++        raise HTTPException(503,"Análise online não configurada")
+     return cloud_sessions.issue(request.client.host if request.client else "unknown")
+ 
+ @app.post("/strategy", dependencies=[Depends(require_authorization)], response_model=strategy_live.Supplement)
+--- a/server/strategy_live.py
++++ b/server/strategy_live.py
+@@ -1,6 +1,8 @@
+-"""Provide an optional Gemini interpretation anchored to the game's recognized state."""
++"""Gemini selects among candidate items and evidence IDs. The server builds all factual text."""
+ from __future__ import annotations
+ 
++import asyncio
++import json
+ from pathlib import Path
+ from typing import Annotated, Literal
+ 
+@@ -9,7 +11,7 @@
+ 
+ import gemini_free
+ 
+-Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=70)]
++Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=90)]
+ catalog = Path(__file__).with_name("live_catalog.tsv")
+ HEROES: set[str] = set()
+ ITEMS: set[str] = {"Athena's Shield"}
+@@ -18,75 +20,165 @@
+         category, name, *_ = line.split("\t", 2)
+         (HEROES if category == "H" else ITEMS).add(name)
+ 
++CONTRACT = 1
++PROVIDER_DEADLINE_SECONDS = 12
++FactKind = Literal["enemy_present", "item_observed", "gold_observed", "level_observed"]
++
++
++def canonical_item(item):
++    return "Valkyrie's Shield" if item.casefold().replace("’", "'") == "athena's shield" else item
++
+ 
+ class Player(BaseModel):
+     model_config = ConfigDict(extra="forbid")
++    player_id: Name | None = None
+     hero: Name
+     team: Literal["ally", "enemy"]
+     items: list[Name] = Field(max_length=6)
+     gold: int | None = Field(default=None, ge=0, le=100_000)
+     level: int | None = Field(default=None, ge=1, le=15)
++    slot_states: list[Literal["NOT_OBSERVED", "UNREADABLE", "EMPTY_CONFIRMED", "ITEM_CANDIDATE", "ITEM_CONFIRMED", "ITEM_UNKNOWN"]] = Field(default_factory=list, max_length=6)
+ 
+ 
+ class Evidence(BaseModel):
+     model_config = ConfigDict(extra="forbid")
++    contract_version: Literal[1] = CONTRACT
++    match_id: Name | None = None
++    state_version: int = Field(default=0, ge=0)
++    age_ms: int = Field(default=0, ge=0, le=20_000)
+     hero: Name
++    own_player_id: Name | None = None
+     players: list[Player] = Field(min_length=2, max_length=10)
+     candidates: list[Name] = Field(min_length=1, max_length=8)
+     minute: int | None = Field(default=None, ge=0, le=99)
++    inventory_complete: bool = False
++
++    def own_player(self):
++        own = [p for p in self.players if p.hero == self.hero and p.team == "ally" and
++               (self.own_player_id is None or self.own_player_id == p.player_id)]
++        if len(own) != 1:
++            raise ValueError("Herói próprio sem identificação única")
++        return own[0]
+ 
+     @model_validator(mode="after")
+     def observed_match(self):
+-        heroes = {p.hero for p in self.players}
+-        if not heroes <= HEROES or len(heroes) != len(self.players):
+-            raise ValueError("Heróis fora do catálogo ou repetidos")
+-        for player in self.players:
+-            if not set(player.items) <= ITEMS:
+-                raise ValueError("Item observado fora do catálogo")
+-        if not set(self.candidates) <= ITEMS or len(set(self.candidates)) != len(self.candidates):
++        ids = [p.player_id for p in self.players if p.player_id is not None]
++        if len(ids) != len(set(ids)) or self.match_id is not None and len(ids) != len(self.players):
++            raise ValueError("Identificadores de jogadores ausentes ou repetidos")
++        if any(p.hero not in HEROES for p in self.players):
++            raise ValueError("Herói fora do catálogo")
++        if any(not set(p.items) <= ITEMS for p in self.players):
++            raise ValueError("Item observado fora do catálogo")
++        if not set(self.candidates) <= ITEMS or len(set(map(canonical_item, self.candidates))) != len(self.candidates):
+             raise ValueError("Candidatos inválidos")
+-        if not any(p.hero == self.hero and p.team == "ally" for p in self.players):
+-            raise ValueError("Herói próprio sem observação no lado aliado")
+-        if not 1 <= sum(p.team == "enemy" for p in self.players) <= 5:
+-            raise ValueError("Lado inimigo sem evidência ou acima do máximo")
+-        if sum(p.team == "ally" for p in self.players) > 5:
+-            raise ValueError("Lado aliado acima do máximo")
++        self.own_player()
++        if not 1 <= sum(p.team == "enemy" for p in self.players) <= 5 or sum(p.team == "ally" for p in self.players) > 5:
++            raise ValueError("Equipes incompatíveis com placar 5v5 observável")
+         return self
++
++
++class Fact(BaseModel):
++    model_config = ConfigDict(extra="forbid")
++    evidence_id: Name
++    kind: FactKind
++    hero: Name
++    value: Name | int | None
++
++
++class ProviderChoice(BaseModel):
++    model_config = ConfigDict(extra="forbid")
++    item: Name | None
++    evidence_ids: list[Name] = Field(max_length=3)
+ 
+ 
+ class Supplement(BaseModel):
+     model_config = ConfigDict(extra="forbid")
+     item: Name | None
+-    advice: str | None = Field(min_length=12, max_length=400)
+-    evidence_heroes: list[Name] = Field(max_length=5)
++    advice: str | None
++    evidence_heroes: list[Name]
++    facts: list[Fact]
++    conditions: list[str]
++    contract_version: Literal[1] = CONTRACT
++    match_id: Name | None = None
++    state_version: int
+ 
+ 
+-PROMPT = """Você complementa a estratégia local de Mobile Legends: Bang Bang.
+-Use somente as observações do JSON fornecido. Listas de itens incompletas não provam slots vazios.
+-Ouro no placar é ouro total. Não presuma orçamento, resultado, objetivos, habilidades ativas ou dados ausentes.
+-Explique em português uma adaptação ou prioridade verificável a partir dos dados.
+-Se citar uma compra, escolha entre os candidatos locais e evite itens já observados no próprio herói.
+-Liste os heróis observados que fundamentam a explicação. Se faltar evidência, devolva item e advice nulos e evidence_heroes vazio.
++PROMPT = """Escolha um equipamento entre os candidatos locais ou devolva null.
++Indique de um a três IDs das evidências fornecidas que justificam revisar a ameaça.
++Use somente os IDs listados. Se a evidência for insuficiente, devolva item nulo e lista vazia.
++Ouro do placar é ouro total, não orçamento. Não há campos para texto livre, objetivos ou acontecimentos presumidos.
+ """
++
++
++def visible_facts(state):
++    facts = {}
++    for i, player in enumerate(state.players):
++        if player.team != "enemy":
++            continue
++
++        def add(kind, value=None, suffix=""):
++            key = f"p{i}:{kind}{suffix}"
++            facts[key] = Fact(evidence_id=key, kind=kind, hero=player.hero, value=value)
++
++        add("enemy_present")
++        for j, item in enumerate(player.items):
++            add("item_observed", item, f":{j}")
++        if player.gold is not None:
++            add("gold_observed", player.gold)
++        if player.level is not None:
++            add("level_observed", player.level)
++    return facts
++
++
++def render_facts(facts):
++    lines = []
++    for fact in facts:
++        if fact.kind == "item_observed":
++            lines.append(f"{fact.hero} tem {fact.value} no placar")
++        elif fact.kind == "gold_observed":
++            lines.append(f"{fact.hero} aparece com {fact.value} de ouro total")
++        elif fact.kind == "level_observed":
++            lines.append(f"{fact.hero} aparece no nível {fact.value}")
++        else:
++            lines.append(f"{fact.hero} aparece do lado inimigo")
++    return ". ".join(lines) + "."
+ 
+ 
+ async def analyze(evidence: Evidence) -> Supplement:
+     if not gemini_free.ready():
+         raise HTTPException(status_code=503, detail="Provedor de estratégia indisponível")
++    known = visible_facts(evidence)
++    own_items = {canonical_item(item) for item in evidence.own_player().items}
++    candidates = [name for name in evidence.candidates if canonical_item(name) not in own_items]
++    base = {"match_id": evidence.match_id, "state_version": evidence.state_version}
++    request = {
++        "hero_proprio": evidence.hero,
++        "candidates": candidates,
++        "facts": [entry.model_dump() for entry in known.values()],
++        "minute": evidence.minute,
++        "inventory_complete": evidence.inventory_complete,
++    }
+     try:
+-        suggestion = await gemini_free.generate(
+-            [{"text": PROMPT}, {"text": evidence.model_dump_json()}],
+-            Supplement.model_json_schema(), Supplement, max_tokens=700,
+-        )
+-        if suggestion.advice is None:
+-            if suggestion.item is not None or suggestion.evidence_heroes:
+-                raise ValueError("Resposta contraditória")
+-            return suggestion
+-        own = next(player for player in evidence.players if player.hero == evidence.hero)
+-        if suggestion.item is not None and (suggestion.item not in evidence.candidates or suggestion.item in own.items):
+-            raise ValueError("Item fora dos candidatos ou já observado")
+-        if not set(suggestion.evidence_heroes) <= {player.hero for player in evidence.players} or not suggestion.evidence_heroes:
+-            raise ValueError("Justificativa sem referência observada")
+-        return suggestion
++        suggestion = await asyncio.wait_for(gemini_free.generate(
++            [{"text": PROMPT}, {"text": json.dumps(request, ensure_ascii=False)}],
++            ProviderChoice.model_json_schema(), ProviderChoice, max_tokens=350,
++        ), timeout=PROVIDER_DEADLINE_SECONDS)
++        if suggestion.item is not None and suggestion.item not in candidates:
++            raise ValueError("Equipamento fora dos candidatos elegíveis")
++        cited = suggestion.evidence_ids
++        if len(cited) != len(set(cited)) or any(key not in known for key in cited):
++            raise ValueError("Evidência ausente ou repetida")
++        if not cited:
++            if suggestion.item is not None:
++                raise ValueError("Equipamento sem evidência")
++            return Supplement(item=None, advice=None, evidence_heroes=[], facts=[], conditions=[], **base)
++        facts = [known[key] for key in cited]
++        conditions = [] if evidence.inventory_complete else ["Inventário parcialmente confirmado"]
++        return Supplement(item=suggestion.item, advice=render_facts(facts),
++                          evidence_heroes=list(dict.fromkeys(fact.hero for fact in facts)),
++                          facts=facts, conditions=conditions, **base)
++    except (ValueError, RuntimeError, TimeoutError) as error:
++        raise HTTPException(status_code=503, detail="Estratégia online temporariamente indisponível") from error
+     except Exception as error:
+-        raise HTTPException(status_code=503, detail="Estratégia online temporariamente indisponível") from error
++        # Network and provider errors remain local to the optional endpoint.
++        raise HTTPException(status_code=503, detail="Falha de comunicação com o provedor") from error
+--- a/server/test_strategy_live.py
++++ b/server/test_strategy_live.py
+@@ -33,17 +33,40 @@
+ 
+ 
+ @pytest.mark.parametrize("item, cited, status", [
+-    ("Malefic Roar", ["Tigreal"], 200),
+-    ("Blade Armor", ["Tigreal"], 503),
++    ("Malefic Roar", ["p1:item_observed:0"], 200),
++    ("Blade Armor", ["p1:enemy_present"], 503),
+     ("Malefic Roar", ["Beatrix"], 503),
+ ])
+ def test_checks_provider_contract(monkeypatch, item, cited, status):
+     async def generate(parts, *_args, **_kwargs):
+         assert len(parts) == 2 and all(set(part) == {"text"} for part in parts)
+         assert "Tigreal" in parts[1]["text"]
+-        return strategy_live.Supplement(
+-            item=item, advice="Adapte a penetração com a armadura observada.", evidence_heroes=cited,
+-        )
++        return strategy_live.ProviderChoice(item=item, evidence_ids=cited)
+     monkeypatch.setattr(strategy_live.gemini_free, "ready", lambda: True)
+     monkeypatch.setattr(strategy_live.gemini_free, "generate", generate)
+-    assert client.post("/strategy", json=PAYLOAD).status_code == status
++    response = client.post("/strategy", json=PAYLOAD)
++    assert response.status_code == status
++    if status == 200:
++        assert response.json()["advice"] == "Tigreal tem Blade Armor no placar."
++        assert response.json()["facts"][0]["value"] == "Blade Armor"
++
++
++def test_provider_cannot_supply_free_facts(monkeypatch):
++    async def hallucinate(_parts, _schema, model, **_kwargs):
++        return model.model_validate({"item": None, "evidence_ids": ["p1:enemy_present"],
++                                     "advice": "A equipe conquistou o Lorde."})
++    monkeypatch.setattr(strategy_live.gemini_free, "ready", lambda: True)
++    monkeypatch.setattr(strategy_live.gemini_free, "generate", hallucinate)
++    assert client.post("/strategy", json=PAYLOAD).status_code == 503
++
++
++def test_duplicate_heroes_across_teams_are_allowed_with_distinct_player_ids(monkeypatch):
++    async def select(*_args, **_kwargs):
++        return strategy_live.ProviderChoice(item=None, evidence_ids=["p1:enemy_present"])
++    monkeypatch.setattr(strategy_live.gemini_free, "ready", lambda: True)
++    monkeypatch.setattr(strategy_live.gemini_free, "generate", select)
++    reply = client.post("/strategy", json={**PAYLOAD, "match_id": "a", "state_version": 4, "own_player_id": "m:1",
++                      "players": [{**PAYLOAD["players"][0], "player_id": "m:1"},
++                                  {**PAYLOAD["players"][1], "hero": "Layla", "player_id": "m:2"}]})
++    assert reply.status_code == 200 and reply.json()["state_version"] == 4
++    assert reply.json()["advice"] == "Layla aparece do lado inimigo."
+--- a/server/.env.example
++++ b/server/.env.example
+@@ -4,3 +4,11 @@
+ MLBB_VISION_ENABLED=1
+ OPENAI_API_KEY=adicione-sua-chave-privada-somente-no-servidor
+ MLBB_VISION_MODEL=gpt-4.1-mini
++
++# Estratégia estruturada opcional com Gemini.
++# Use uma chave do projeto gratuito configurada pelo operador do backend.
++MLBB_VISION_PROVIDER=gemini
++MLBB_FREE_PROJECT_CONFIRMED=0
++GEMINI_API_KEY=
++MLBB_FREE_CALLS_DAY=10
++MLBB_PUBLIC_SESSION_ENABLED=0

@@ -18,8 +18,8 @@ target.mkdir(parents=True, exist_ok=True)
 if any(target.iterdir()):
     parser.error("destination must be empty")
 
-for directory in ("updates", "deploy"):
-    shutil.copytree(repo / directory, target / directory)
+for directory in ("updates", "deploy", "tools"):
+    shutil.copytree(repo / directory, target / directory, ignore=shutil.ignore_patterns("__pycache__"))
 shutil.copy2(repo / "MLBB_ASSISTANT_CODIGO_GITHUB.zip", target)
 workflow = yaml.safe_load((repo / ".github/workflows/development-v023.yml").read_text())
 steps = workflow["jobs"]["apk"]["steps"]

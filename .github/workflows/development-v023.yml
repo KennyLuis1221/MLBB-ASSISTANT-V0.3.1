@@ -1,14 +1,16 @@
-name: Validar APKs Base e IA V0.17
+name: Gerar compilação de validação V0.18
 
 on:
   workflow_dispatch:
   push:
-    branches: [development-v023, codex/mlbb-auditoria]
+    branches: [development-v023, codex/mlbb-auditoria, codex/mlbb-recuperacao-v3]
     paths:
       - 'updates/v0_14/**'
       - 'updates/v0_15/**'
       - 'updates/v0_16/**'
       - 'updates/v0_17/**'
+      - 'updates/v0_18/**'
+      - 'deploy/**'
       - 'tools/**'
       - '.github/workflows/development-v023.yml'
 
@@ -297,6 +299,12 @@ jobs:
           python3 updates/v0_17/apply.py
           python3 -m pytest -q --junitxml=backend-tests.xml server
 
+      - name: Integrar recuperação V3 e verificar Python e catálogo
+        run: |
+          python3 updates/v0_18/apply.py
+          python3 -m pytest -q --junitxml=backend-tests.xml server tools/tests
+          python3 tools/audit_visual_catalog.py android-app/app/src/main/assets > visual-coverage.json
+
       - name: Configurar Java 17
         uses: actions/setup-java@v4
         with:
@@ -333,14 +341,18 @@ jobs:
 
       - name: Compilar APK de teste
         working-directory: android-app
-        run: gradle --no-daemon :app:testBaseDebugUnitTest :app:testIaDebugUnitTest :app:assembleBaseDebug :app:assembleIaDebug
+        run: >-
+          gradle --no-daemon -PmlbbCommit="${GITHUB_SHA}"
+          :app:testBaseDebugUnitTest :app:testIaDebugUnitTest
+          :app:lintBaseDebug :app:lintIaDebug
+          :app:assembleBaseDebug :app:assembleIaDebug
 
       - name: Verificar assinatura, integridade e permissões
         shell: bash
         run: |
           mkdir -p artifacts
-          cp android-app/app/build/outputs/apk/base/debug/app-base-debug.apk artifacts/MLBB-Base-0.17.0-debug.apk
-          cp android-app/app/build/outputs/apk/ia/debug/app-ia-debug.apk artifacts/MLBB-IA-0.17.0-debug.apk
+          cp android-app/app/build/outputs/apk/base/debug/app-base-debug.apk artifacts/MLBB-Base-0.18.0-validacao.apk
+          cp android-app/app/build/outputs/apk/ia/debug/app-ia-debug.apk artifacts/MLBB-IA-0.18.0-validacao.apk
           signer="$ANDROID_HOME/build-tools/35.0.0/apksigner"
           aapt="$ANDROID_HOME/build-tools/35.0.0/aapt"
           for apk in artifacts/*.apk; do
@@ -348,22 +360,24 @@ jobs:
             "$signer" verify --verbose --print-certs "$apk" | tee "${apk%.apk}-assinatura.txt"
             "$aapt" dump badging "$apk" > "${apk%.apk}-manifesto.txt"
           done
-          ! "$aapt" dump permissions artifacts/MLBB-Base-0.17.0-debug.apk | grep -F android.permission.INTERNET
-          "$aapt" dump permissions artifacts/MLBB-IA-0.17.0-debug.apk | grep -F android.permission.INTERNET
+          ! "$aapt" dump permissions artifacts/MLBB-Base-0.18.0-validacao.apk | grep -F android.permission.INTERNET
+          "$aapt" dump permissions artifacts/MLBB-IA-0.18.0-validacao.apk | grep -F android.permission.INTERNET
           cd artifacts
           sha256sum ./*.apk > SHA256SUMS.txt
+          printf '%s\n' "$GITHUB_SHA" > COMMIT.txt
+          printf '%s\n' 'Compilação de validação Android 0.18.0 (assinatura debug).' > TIPO.txt
 
       - name: Disponibilizar APK Base e APK IA
         uses: actions/upload-artifact@v4
         with:
-          name: MLBB-V0.17.0-APKs-debug
+          name: MLBB-V0.18.0-APKs-debug
           path: artifacts
           if-no-files-found: error
 
       - name: Disponibilizar fontes completas
         uses: actions/upload-artifact@v4
         with:
-          name: MLBB-V0.17.0-fontes
+          name: MLBB-V0.18.0-fontes
           include-hidden-files: true
           path: |
             android-app/
@@ -384,9 +398,11 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: MLBB-V0.17.0-testes
+          name: MLBB-V0.18.0-testes
           path: |
             backend-tests.xml
             android-app/app/build/test-results/**/*.xml
             development-data-audit.json
+            visual-coverage.json
+            android-app/app/build/reports/lint-results-*.xml
           if-no-files-found: warn

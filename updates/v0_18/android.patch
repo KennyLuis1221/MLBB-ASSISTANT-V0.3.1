@@ -1,0 +1,1764 @@
+--- a/android-app/app/build.gradle.kts
++++ b/android-app/app/build.gradle.kts
+@@ -16,8 +16,11 @@
+         applicationId = "com.mlbb.assistant"
+         minSdk = 29
+         targetSdk = 35
+-        versionCode = 18
+-        versionName = "0.17.0"
++        versionCode = 19
++        versionName = "0.18.0-validation"
++        val source = providers.gradleProperty("mlbbCommit").orElse("desconhecido").get()
++        require(source == "desconhecido" || source.matches(Regex("[a-f0-9]{7,40}")))
++        buildConfigField("String", "SOURCE_REVISION", "\"$source\"")
+         buildConfigField("String", "DEFAULT_API_URL", "\"https://mlbb-assistant-vision.onrender.com\"")
+         manifestPlaceholders["cleartextTraffic"] = "false"
+     }
+@@ -39,7 +42,7 @@
+ 
+     buildTypes {
+         getByName("debug") {
+-            applicationIdSuffix = ".debug"
++            applicationIdSuffix = ".validation"
+         }
+         getByName("release") {
+             isMinifyEnabled = false
+--- a/android-app/app/src/main/java/com/mlbb/assistant/CatalogStorage.kt
++++ b/android-app/app/src/main/java/com/mlbb/assistant/CatalogStorage.kt
+@@ -10,6 +10,7 @@
+ internal object CatalogStorage {
+     private const val MAX_BYTES = 6_000_000
+     private const val NAME = "strategy13.tsv"
++    private const val PREVIOUS = "strategy13.previous.tsv"
+ 
+     @Synchronized
+     fun load(context: Context): GameData13.Snapshot? {
+@@ -39,14 +40,32 @@
+         require(proposed.heroes.keys == bundled.heroes.keys && proposed.items.keys.containsAll(bundled.items.keys))
+         val date = LocalDate.parse(proposed.date)
+         require(date >= LocalDate.parse(current.date))
++        val previous = runCatching { file.openRead().use { it.readBytes() } }.getOrNull()
++            ?: context.assets.open(NAME).use { it.readBytes() }
++        if (runCatching { GameData13.parse(previous.inputStream()) }.isSuccess)
++            write(AtomicFile(File(context.filesDir, PREVIOUS)), previous)
++        write(file, content)
++        return proposed.date
++    }
++
++    @Synchronized
++    fun restorePrevious(context: Context): String {
++        val backup = AtomicFile(File(context.filesDir, PREVIOUS))
++        val content = backup.openRead().use { it.readBytes() }
++        require(content.size in 1..MAX_BYTES)
++        val approved = GameData13.parse(content.inputStream())
++        write(AtomicFile(File(context.filesDir, NAME)), content)
++        return approved.date
++    }
++
++    private fun write(file: AtomicFile, bytes: ByteArray) {
+         val output = file.startWrite()
+         try {
+-            output.write(content)
++            output.write(bytes)
+             file.finishWrite(output)
+         } catch (error: Exception) {
+             file.failWrite(output)
+             throw error
+         }
+-        return proposed.date
+     }
+ }
+--- a/android-app/app/src/main/java/com/mlbb/assistant/CloudAnalysis.kt
++++ b/android-app/app/src/main/java/com/mlbb/assistant/CloudAnalysis.kt
+@@ -2,34 +2,40 @@
+ 
+ internal data class CloudPlayer(
+     val hero: String, val team: String, val items: List<String>,
+-    val gold: Int?, val level: Int?
++    val gold: Int?, val level: Int?, val id: String? = null, val slots: List<String> = emptyList()
+ )
+ 
+ internal data class CloudEvidence(
+     val hero: String,
+     val players: List<CloudPlayer>,
+     val candidates: List<String>,
+-    val minute: Int?
++    val minute: Int?, val matchId: String? = null, val stateVersion: Long = 0,
++    val ownPlayerId: String? = null, val ageMs: Long = 0, val inventoryComplete: Boolean = false
+ ) {
+     // Cache identity changes when the inputs that can materially alter the advice change.
+-    fun key() = copy(players = players.map { it.copy(gold = it.gold?.div(1000)) }, minute = minute?.div(3))
++    fun key() = copy(players = players.map { it.copy(gold = it.gold?.div(1000)) }, minute = minute?.div(3), stateVersion = 0, ageMs = 0)
+ 
+     companion object {
+         fun from(result: AnalysisResult, now: Long): CloudEvidence? {
+             if (!result.currentBoard || !Evidence14.pairFresh(now, result.observedAt)) return null
+             val hero = result.hero ?: return null
+             val players = result.players.mapNotNull {
++                if (it.hero.isBlank()) return@mapNotNull null
+                 val team = when (it.team) {
+                     "Aliado" -> "ally"
+                     "Inimigo" -> "enemy"
+                     else -> return@mapNotNull null
+                 }
+-                CloudPlayer(it.hero, team, it.items.sorted(), it.gold?.toIntOrNull(), it.level)
+-            }.sortedBy { it.hero }
+-            if (players.none { it.hero == hero && it.team == "ally" } || players.none { it.team == "enemy" }) return null
+-            val candidates = (listOfNotNull(result.item) + result.alternatives + result.buildPlan).distinct().take(8)
++                CloudPlayer(it.hero, team, it.items.sorted(), it.gold?.toIntOrNull(), it.level, it.playerId, it.slots.map { slot -> slot.state.name })
++            }.sortedWith(compareBy({ it.hero }, { it.team }, { it.id }))
++            if (players.none { it.hero == hero && it.team == "ally" && (result.ownPlayerId == null || it.id == result.ownPlayerId) } || players.none { it.team == "enemy" }) return null
++            val ownItems = players.first { it.hero == hero && it.team == "ally" &&
++                (result.ownPlayerId == null || it.id == result.ownPlayerId) }.items.map(GameData13::normalizeItem).toSet()
++            val candidates = (listOfNotNull(result.item) + result.alternatives)
++                .map(GameData13::normalizeItem).filter { it !in ownItems }.distinct().take(8)
+             if (candidates.isEmpty()) return null
+-            return CloudEvidence(hero, players, candidates, result.matchTime?.substringBefore(':')?.toIntOrNull())
++            return CloudEvidence(hero, players, candidates, result.matchTime?.substringBefore(':')?.toIntOrNull(),
++                result.matchId, result.stateVersion, result.ownPlayerId, now - result.observedAt, result.inventoryComplete)
+         }
+     }
+ }
+@@ -44,6 +50,7 @@
+     private var nextRequestAt = 0L
+     private var inFlight = false
+     private var failure: String? = null
++    private var failures = 0
+ 
+     fun start(evidence: CloudEvidence, now: Long): Boolean {
+         if (inFlight || now < nextRequestAt || requested == evidence.key() && failure == null && now - cachedAt < 90_000L) return false
+@@ -58,6 +65,10 @@
+         inFlight = false
+         if (!currentSession) return
+         failure = outcome.error
++        if (failure == null) failures = 0 else {
++            failures = (failures + 1).coerceAtMost(4)
++            nextRequestAt = maxOf(nextRequestAt, now + 30_000L * (1L shl (failures - 1)))
++        }
+         cached = outcome.supplement?.let { evidence.key() to it }
+         cachedAt = now
+     }
+--- a/android-app/app/src/main/java/com/mlbb/assistant/CloudSession.kt
++++ b/android-app/app/src/main/java/com/mlbb/assistant/CloudSession.kt
+@@ -8,12 +8,16 @@
+ 
+ /** Obtains only a short-lived application token. Provider credentials stay on the server. */
+ object CloudSession {
++    @Volatile var backendVersion: String? = null
++        private set
++
+     internal fun connect(base: String): String {
+         require(base.startsWith("https://"))
+         val url = base.trimEnd('/')
+         val health = call("$url/health", "GET")
++        backendVersion = health.optString("version").takeIf { it.matches(Regex("[0-9.]{1,25}")) }
+         when (health.optString("strategy")) {
+-            "available" -> Unit
++            "available" -> if (health.optInt("strategy_contract") != 1) throw CloudConfigurationError("Contrato IA incompatível")
+             "disabled" -> throw CloudConfigurationError("Provedor IA desativado")
+             else -> throw CloudConfigurationError("Servidor ainda sem estratégia estruturada")
+         }
+--- a/android-app/app/src/main/java/com/mlbb/assistant/DetailedMatcher.kt
++++ b/android-app/app/src/main/java/com/mlbb/assistant/DetailedMatcher.kt
+@@ -67,69 +67,88 @@
+         if(best==null||score>.205||second-score<.032)return null
+         return Hit(best.name,score,x,y,size,second-score)
+     }
+-    data class Row(val side:Int,val index:Int,val hero:Hit?,val items:List<Hit>,val centerY:Int)
+-    data class Board(val rows:List<Row>,val support:Int,val layout:String="sem geometria confirmada")
+-    private data class Grid(val start:Double,val step:Double,val left:Double,val right:Double,
+-        val leftItems:Double,val rightItems:Double,val itemStep:Double,val dy:Double,val heroSize:Double,val itemSize:Double)
+-    fun board(b:Bitmap, hasScoreboardText:Boolean):Board {
+-        val w=b.width;val h=b.height
+-        val custom=calibration?.takeIf{it.compatible(w,h)}
+-        var calibratedSupport = 0
+-        if(custom!=null){
+-            val rows=mutableListOf<Row>()
+-            for(side in 0..1)for(row in 0..4){
+-                val p=custom.hero(side,row)
+-                val hit=match(b,(p.x*w).toInt(),(p.y*h).toInt(),(p.size*w).toInt().coerceAtLeast(12),'h')
+-                val items=if(hit==null)emptyList()else(0..5).mapNotNull{idx->
+-                    val i=custom.item(side,row,idx)
+-                    match(b,(i.x*w).toInt(),(i.y*h).toInt(),(i.size*w).toInt().coerceAtLeast(12),'i')?.copy(slot=idx)
+-                }
+-                rows.add(Row(side,row,hit,items,(p.y*h).toInt()))
+-            }
+-            val duplicates=rows.mapNotNull{it.hero?.name}.groupingBy{it}.eachCount().filterValues{it>1}.keys
+-            val unique=rows.filter{it.hero?.name !in duplicates}
+-            val n=unique.count{it.hero!=null}
+-            calibratedSupport = n
+-            val bothSides = (0..1).all { side -> unique.any { it.side == side && it.hero != null } }
+-            if (n >= 2 && (bothSides || hasScoreboardText)) return Board(unique, n, "layout calibrado")
+-        }
+-        // Multiple hypotheses: full-width scoreboard, inset board and alternate row positions.
+-        // Uncalibrated layouts require evidence on both sides.
+-        val grids=listOf(
++    data class Row(
++        val side: Int, val index: Int, val hero: Hit?, val items: List<Hit>,
++        val centerY: Int, val centerX: Int, val slots: List<SlotObservation>
++    )
++    data class Board(val rows: List<Row>, val support: Int, val layout: String = "sem geometria confirmada")
++    data class Anchor(val x: Int, val y: Int)
++    private data class Box(val x: Int, val y: Int, val size: Int)
++    private data class Geometry(val side: Int, val row: Int, val hero: Box, val slots: List<Box>)
++    private data class Grid(val start: Double, val step: Double, val left: Double, val right: Double,
++        val leftItems: Double, val rightItems: Double, val itemStep: Double, val dy: Double, val heroSize: Double, val itemSize: Double)
++
++    private val emptySlot = EmptySlotReference.decode(context.getSharedPreferences("settings", Context.MODE_PRIVATE)
++        .getString("empty_slot_calibration", null))
++
++    fun board(b: Bitmap, hasScoreboardText: Boolean, anchors: List<Anchor>): Board {
++        val w = b.width
++        val h = b.height
++        val custom = calibration?.takeIf { it.compatible(w, h) }
++        val grids = listOf(
+             Grid(.265,.128,.165,.835,.208,.643,.030,.026,.044,.027),
+             Grid(.35,.087,.135,.87,.18,.66,.028,.027,.045,.028),
+             Grid(.35,.087,.135,.72,.18,.55,.025,.028,.043,.023),
+             Grid(.275,.11,.15,.85,.19,.635,.027,.025,.043,.024))
+-        var chosen:Grid?=null;var selected=emptyList<Row>();var best=0
+-        for(g in grids) {
+-            val rows=mutableListOf<Row>()
+-            for(side in 0..1)for(k in 0..4) {
+-                val y=((g.start+k*g.step)*h).toInt()
+-                val x=((if(side==0)g.left else g.right)*w).toInt()
+-                val size=(g.heroSize*w).toInt()
+-                val hit=match(b,x,y,size,'h')
+-                rows.add(Row(side,k,hit,emptyList(),y))
++        data class Trial(val name: String, val geometry: List<Geometry>, val portraits: List<Hit?>, val score: Int, val valid: Boolean)
++        fun evaluate(geometry: List<Geometry>, name: String, calibrated: Boolean): Trial {
++            val portraits = geometry.map { match(b, it.hero.x, it.hero.y, it.hero.size, 'h') }
++            val portraitCounts = (0..1).map { side -> geometry.indices.count { geometry[it].side == side && portraits[it] != null } }
++            val anchorsBySide = (0..1).map { side -> geometry.count { row ->
++                row.side == side && anchors.any { (it.x < w / 2) == (side == 0) && abs(it.y - row.hero.y) < h * .030 }
++            } }
++            val portraitTotal = portraitCounts.sum()
++            val anchorTotal = anchorsBySide.sum()
++            val valid = anchorsBySide.all { it >= 2 } ||
++                hasScoreboardText && anchorTotal >= 3 ||
++                calibrated && hasScoreboardText && portraitTotal + anchorTotal >= 2 ||
++                portraitCounts.all { it >= 2 }
++            return Trial(name, geometry, portraits, anchorTotal * 3 + portraitTotal * 2 + if (calibrated) 2 else 0, valid)
++        }
++        fun pixel(slot: BoardCalibration.Slot) = Box((slot.x*w).toInt(), (slot.y*h).toInt(), (slot.size*w).toInt().coerceAtLeast(12))
++        val trials = mutableListOf<Trial>()
++        if (custom != null) {
++            val geometry = (0..1).flatMap { side -> (0..4).map { row ->
++                Geometry(side, row, pixel(custom.hero(side, row)), (0..5).map { pixel(custom.item(side, row, it)) })
++            } }
++            val trial = evaluate(geometry, "layout calibrado", true)
++            if (trial.valid && trial.score >= 15) return resolveBoard(b, trial.name, trial.geometry, trial.portraits)
++            trials.add(trial)
++        }
++        for (grid in grids) {
++            val geometry = (0..1).flatMap { side -> (0..4).map { row ->
++                val y = ((grid.start + row * grid.step) * h).toInt()
++                val x = ((if (side == 0) grid.left else grid.right) * w).toInt()
++                val first = if (side == 0) grid.leftItems else grid.rightItems
++                Geometry(side, row, Box(x, y, (grid.heroSize*w).toInt()), (0..5).map { slot ->
++                    Box(((first + slot * grid.itemStep)*w).toInt(), y + (grid.dy*h).toInt(), (grid.itemSize*w).toInt())
++                })
++            } }
++            trials.add(evaluate(geometry, "layout estimado", false))
++        }
++        val best = trials.filter { it.valid }.maxByOrNull { it.score }
++        return if (best == null) Board(emptyList(), trials.maxOfOrNull { it.portraits.count { h -> h != null } } ?: 0)
++            else resolveBoard(b, best.name, best.geometry, best.portraits)
++    }
++
++    private fun resolveBoard(b: Bitmap, layout: String, geometry: List<Geometry>, portraits: List<Hit?>): Board {
++        val rows = geometry.zip(portraits).map { (row, hero) ->
++            val items = mutableListOf<Hit>()
++            val slots = row.slots.mapIndexed { index, box ->
++                val hit = match(b, box.x, box.y, box.size, 'i')
++                if (hit != null) items.add(hit.copy(slot = index))
++                val state = when {
++                    hit != null -> SlotState.ITEM_CANDIDATE
++                    emptySlot?.matches(b, box.x, box.y, box.size) == true -> SlotState.EMPTY_CONFIRMED
++                    box.x - box.size / 2 < 0 || box.y - box.size / 2 < 0 ||
++                        box.x + box.size / 2 >= b.width || box.y + box.size / 2 >= b.height -> SlotState.UNREADABLE
++                    else -> SlotState.ITEM_UNKNOWN
++                }
++                SlotObservation(index, state, hit?.name, hit?.distance, hit?.margin)
+             }
+-            val duplicates=rows.mapNotNull{it.hero?.name}.groupingBy{it}.eachCount().filterValues{it>1}.keys
+-            val unique=rows.filter{it.hero?.name !in duplicates}
+-            val n=unique.count{it.hero!=null}
+-            val supported=(0..1).all{side->unique.count{it.side==side&&it.hero!=null}>=2}
+-            if(supported&&n>best){chosen=g;selected=unique;best=n}
+-            calibratedSupport=max(calibratedSupport,n)
++            Row(row.side, row.row, hero, items, row.hero.y, row.hero.x, slots)
+         }
+-        val g=chosen ?: return Board(emptyList(), calibratedSupport,
+-            if (calibration != null && custom == null) "calibração incompatível com a proporção" else "sem geometria confirmada")
+-        val final=selected.map { row ->
+-            if(row.hero==null) row else {
+-                val start=if(row.side==0)g.leftItems else g.rightItems
+-                val items=(0..5).mapNotNull{k->
+-                    match(b,((start+g.itemStep*k)*w).toInt(),row.centerY+(g.dy*h).toInt(),
+-                        (g.itemSize*w).toInt(),'i')?.copy(slot=k)
+-                }
+-                row.copy(items=items)
+-            }
+-        }
+-        return Board(final,best,"layout estimado")
++        return Board(rows, portraits.count { it != null }, layout)
+     }
+     fun thumbnail(b:Bitmap,hit:Hit):Bitmap? {
+         val s=hit.size; val x=hit.x-s/2;val y=hit.y-s/2
+@@ -145,9 +164,10 @@
+         val scores=rows.filter{it.hero!=null}.map { r ->
+             val h=r.hero!!;var sum=0.0
+             val w=b.width
+-            val start=if(r.side==0) .26 else .55
++            val direction=if (r.side==0) 1 else -1
++            val start=r.centerX + direction*h.size
+             for(i in 0..8) {
+-                val x=((start+i*.022)*w).toInt().coerceIn(0,w-1)
++                val x=(start+direction*i*h.size/3).coerceIn(0,w-1)
+                 val y=(r.centerY+h.size*.46).toInt().coerceIn(0,b.height-1)
+                 val c=b.getPixel(x,y)
+                 sum+=Color.blue(c)*.6+Color.green(c)*.4-Color.red(c)*.45
+--- a/android-app/app/src/main/java/com/mlbb/assistant/FrameBudget.kt
++++ b/android-app/app/src/main/java/com/mlbb/assistant/FrameBudget.kt
+@@ -5,6 +5,9 @@
+     const val DEADLINE_MS = 1_000L
+     const val OCR_MS = 500L
+ 
++    fun nextDue(now: Long, scheduled: Long): Long =
++        if (scheduled <= 0 || now - scheduled >= INTERVAL_MS) now + INTERVAL_MS else scheduled + INTERVAL_MS
++
+     fun due(now: Long, lastStarted: Long) = now - lastStarted >= INTERVAL_MS
+     fun withinDeadline(now: Long, started: Long) = now - started in 0..DEADLINE_MS
+ }
+--- a/android-app/app/src/main/java/com/mlbb/assistant/GameData13.kt
++++ b/android-app/app/src/main/java/com/mlbb/assistant/GameData13.kt
+@@ -1,6 +1,8 @@
+ package com.mlbb.assistant
+ 
+ import java.io.InputStream
++import java.time.LocalDate
++import java.util.Locale
+ 
+ /** Data is bundled as UTF-8 TSV; no internet permission required for these lookups. */
+ object GameData13 {
+@@ -36,27 +38,120 @@
+  }
+  @Synchronized fun install(input:InputStream):Snapshot = parse(input).also { current = it }
+  internal fun parse(input:InputStream):Snapshot {
+-  val h=linkedMapOf<String,Hero>();val sk=linkedMapOf<String,MutableList<Skill>>();val it=linkedMapOf<String,Item>();val bs=linkedMapOf<String,MutableList<Build>>()
+-  val c=linkedMapOf<Triple<String,String,String>,Double>();val y=linkedMapOf<Triple<String,String,String>,Double>();var date="";val combos=linkedMapOf<String,MutableList<ComboRef>>()
+-  fun list(s:String)=s.split("|").filter{it.isNotBlank()}
+-  input.bufferedReader(Charsets.UTF_8).useLines{lines->lines.forEach{line->
+-    val a=line.split('\t');when(a[0]){
+-     "V"->date=a[1]
+-     "H"->h[a[1]]=Hero(a[1],a[2],list(a[3]).toSet(),list(a[4]).toSet(),a[5],a[6],list(a[7]).toSet(),list(a[8]).mapNotNull{v->v.split("=",limit=2).let{if(it.size==2)it[0] to it[1] else null}}.toMap(),a[9].toIntOrNull(),a[10].toIntOrNull())
+-     "S"->sk.getOrPut(a[1]){mutableListOf()}.add(Skill(a[2],list(a[3]),list(a[4]),list(a[5]).toSet(),list(a[6])))
+-     "I"->it[a[1]]=Item(a[1],a[2],a[3].toIntOrNull(),list(a[4]),a[5],a[6],a[7],a[8])
+-     "B"->bs.getOrPut(a[1]){mutableListOf()}.add(Build(a[1],a[2],a[3],a[4],a[5].toDoubleOrNull()?:0.0,list(a[6]),a.getOrElse(7){""},list(a.getOrElse(8){""}),a.getOrElse(9){""},a.getOrNull(10)?.toDoubleOrNull()))
+-     "D"->{val skills=sk[a[1]]?:error("Unknown skill hero");val idx=a[2].toInt();skills[idx]=skills[idx].copy(description=a[3])}
+-     "E"->{val item=it[a[1]]?:error("Unknown item");it[a[1]]=item.copy(passiveText=a[2],activeText=a[3],unique=a[4],summary=a[5])}
+-     "Q"->combos.getOrPut(a[1]){mutableListOf()}.add(ComboRef(a[1],a[2],list(a[3])))
+-     "C","Y"->{val dest=if(a[0]=="C")c else y;val v=a[4].toDoubleOrNull();if(v!=null&&v.isFinite())dest[Triple(a[1],a[2],a[3])]=v}
++  val h = linkedMapOf<String, Hero>()
++  val skills = linkedMapOf<String, MutableList<Skill>>()
++  val items = linkedMapOf<String, Item>()
++  val builds = linkedMapOf<String, MutableList<Build>>()
++  val counters = linkedMapOf<Triple<String, String, String>, Double>()
++  val synergy = linkedMapOf<Triple<String, String, String>, Double>()
++  val combos = linkedMapOf<String, MutableList<ComboRef>>()
++  val descriptions = mutableSetOf<Pair<String, Int>>()
++  val effects = mutableSetOf<String>()
++  val records = mutableSetOf<Pair<String, String>>()
++  var date = ""
++  val missingPrices = setOf("Bud of Hope", "Flower of Hope", "Lantern of Hope", "Shimmering Lantern")
++  val itemTypes = setOf("Attack", "Magic", "Defense", "Movement", "Attack & Magic", "Attack, Magic & Defense")
++  fun list(s: String) = s.split("|").filter { it.isNotBlank() }
++  fun name(s: String): String {
++   require(s.length in 1..80 && s == s.trim() && s.none { it.isISOControl() || it in "<>=|" })
++   return s
++  }
++  fun unique(kind: String, value: String) = require(records.add(kind to name(value).lowercase(Locale.ROOT))) {
++   "Identificador repetido: $kind/$value"
++  }
++  fun number(raw: String): Double = requireNotNull(raw.toDoubleOrNull()?.takeIf { it.isFinite() })
++  fun rating(raw: String): Int? = if (raw.isBlank()) null else raw.toInt().also { require(it in 0..10) }
++  input.bufferedReader(Charsets.UTF_8).useLines { lines -> lines.forEachIndexed { index, line ->
++   val a = line.split('	')
++   try {
++    when (a[0]) {
++     "V" -> {
++      require(date.isBlank() && a.size in 3..4 && a[2].matches(Regex("[a-f0-9]{40}")))
++      LocalDate.parse(a[1])
++      require(a.getOrNull(3) == null || a[3] == Patch15.version)
++      date = a[1]
++     }
++     "H" -> {
++      require(a.size == 11)
++      unique("H", a[1]); unique("slug", a[2])
++      require(a[2].matches(Regex("[a-z0-9][a-z0-9_-]*")) && a[3].isNotBlank() && a[4].isNotBlank())
++      val attributes = linkedMapOf<String, String>()
++      for (attribute in list(a[8])) {
++       val pair = attribute.split("=", limit = 2)
++       require(pair.size == 2 && pair[0].matches(Regex("[a-z][a-z0-9_]*")))
++       if (pair[0] == "basic_atk_range" && pair[1].toDoubleOrNull() == null) {
++        require(pair[1].length in 1..120 && pair[1].matches(Regex("[0-9][0-9A-Za-z .(),&/+-]*")))
++       } else require(number(pair[1]) >= 0)
++       require(attributes.put(pair[0], pair[1]) == null)
++      }
++      h[a[1]] = Hero(a[1], a[2], list(a[3]).toSet(), list(a[4]).toSet(), a[5], a[6], list(a[7]).toSet(), attributes, rating(a[9]), rating(a[10]))
++     }
++     "S" -> {
++      require(a.size == 7); name(a[2])
++      skills.getOrPut(a[1]) { mutableListOf() }.add(Skill(a[2], list(a[3]), list(a[4]), list(a[5]).toSet(), list(a[6])))
++     }
++     "I" -> {
++      require(a.size == 9 && a[2] in itemTypes)
++      unique("I", a[1])
++      val price = if (a[3].isBlank()) null.also { require(a[1] in missingPrices && a[4].isBlank()) }
++       else a[3].toInt().also { require(it in 1..100_000) }
++      items[a[1]] = Item(a[1], a[2], price, list(a[4]), a[5], a[6], a[7], a[8])
++     }
++     "B" -> {
++      require(a.size in 7..11)
++      val frequency = number(a[5]).also { require(it in 0.0..100.0) }
++      val winRate = a.getOrNull(10)?.takeIf { it.isNotBlank() }?.let(::number)?.also { require(it in 0.0..100.0) }
++      val loadout = list(a[6])
++      require(loadout.size in 1..6)
++      builds.getOrPut(a[1]) { mutableListOf() }.add(Build(a[1], a[2], a[3], a[4], frequency, loadout,
++       a.getOrElse(7) { "" }, list(a.getOrElse(8) { "" }), a.getOrElse(9) { "" }, winRate))
++     }
++     "D" -> {
++      require(a.size == 4 && a[3].isNotBlank())
++      val indexOfSkill = a[2].toInt()
++      require(descriptions.add(a[1] to indexOfSkill))
++      val group = skills.getValue(a[1])
++      group[indexOfSkill] = group[indexOfSkill].copy(description = a[3])
++     }
++     "E" -> {
++      require(a.size == 6 && effects.add(a[1]))
++      val item = items.getValue(a[1])
++      items[a[1]] = item.copy(passiveText = Patch15.itemDescription(a[1], a[2]), activeText = a[3], unique = a[4], summary = a[5])
++     }
++     "Q" -> {
++      require(a.size == 4)
++      combos.getOrPut(a[1]) { mutableListOf() }.add(ComboRef(a[1], a[2], list(a[3])))
++     }
++     "C", "Y" -> {
++      require(a.size == 5)
++      val dest = if (a[0] == "C") counters else synergy
++      require(dest.put(Triple(a[1], a[2], a[3]), number(a[4])) == null)
++     }
++     else -> require(line.isBlank()) { "Tipo de registro desconhecido" }
+     }
+-  }}
+-  require(date.isNotBlank()&&h.size==133&&it.size>=100&&sk.keys.containsAll(h.keys)&&c.isNotEmpty()&&bs.isNotEmpty())
+-  require(h.keys==sk.keys&&bs.keys.containsAll(h.keys))
+-  require(sk.values.flatten().all{it.description.isNotBlank()})
+-  require(it.values.all{i->i.recipe.all{part->it.containsKey(part)}})
+-  require(combos.keys==h.keys&&combos.values.sumOf{it.size}==266)
+-  return Snapshot(date,h,sk,it,bs,c,y,combos)
++   } catch (error: Exception) {
++    throw IllegalArgumentException("Catálogo inválido na linha ${index + 1}", error)
++   }
++  } }
++  require(date.isNotBlank() && h.size == 133 && items.size >= 100 && h.keys == skills.keys && h.keys == builds.keys)
++  require(skills.values.flatten().all { it.description.isNotBlank() } && combos.keys == h.keys)
++  require(counters.isNotEmpty() && (counters.keys + synergy.keys).all { (left, right, _) -> left in h && right in h })
++  require(builds.values.flatten().all { build -> build.items.all(items::containsKey) })
++  require(combos.values.sumOf { it.size } == 266)
++  val resolved = mutableSetOf<String>()
++  val visiting = mutableSetOf<String>()
++  fun validateRecipe(item: Item) {
++   if (item.name in resolved) return
++   require(visiting.add(item.name)) { "Receita circular: ${item.name}" }
++   for (part in item.recipe) {
++    val component = requireNotNull(items[part]) { "Componente desconhecido: $part" }
++    require(component.price != null) { "Componente sem preço: $part" }
++    validateRecipe(component)
++   }
++   visiting.remove(item.name)
++   resolved.add(item.name)
++  }
++  items.values.forEach(::validateRecipe)
++  return Snapshot(date, h, skills, items, builds, counters, synergy, combos)
+  }
+ }
+--- a/android-app/app/src/main/java/com/mlbb/assistant/LiveDiagnostics.kt
++++ b/android-app/app/src/main/java/com/mlbb/assistant/LiveDiagnostics.kt
+@@ -18,13 +18,17 @@
+     fun start(value: String) {
+         mode = value
+         fields.put("apk", BuildConfig.VERSION_NAME)
+-            .put("modo", mode)
++            .put("modo", mode).put("commit", BuildConfig.SOURCE_REVISION)
+             .put("captura", "Autorizada pelo Android")
+             .put("servico_ativo", true)
+             .put("quadros_recebidos", 0)
+             .put("quadros_processados", 0)
+             .put("quadros_fora_do_prazo", 0)
+             .put("prazo_local_ms", FrameBudget.DEADLINE_MS)
++            .put("quadros_validos", 0).put("quadros_descartados", 0).put("quadros_duplicados", 0)
++            .put("reconhecimentos_completos", 0).put("reconhecimentos_parciais", 0)
++            .put("erros", 0).put("invalidacoes", 0)
++            .put("catalogo", GameData13.current?.date ?: JSONObject.NULL)
+         persist(true)
+     }
+ 
+@@ -44,10 +48,25 @@
+     }
+ 
+     @Synchronized
+-    fun analyzed(result: AnalysisResult, duration: Long) {
+-        fields.put("captura", "Captura ativa").put("quadros_processados", result.frameCount)
++    fun count(key: String) {
++        fields.put(key, fields.optLong(key) + 1)
++        persist()
++    }
++
++    @Synchronized
++    fun analyzed(result: AnalysisResult, duration: Long, processing: Long) {
++        count("quadros_validos")
++        if (result.currentBoard) {
++            val complete = result.hero != null && result.players.count { it.hero.isNotBlank() } == 10 &&
++                result.players.all { row -> row.slots.size == 6 && row.slots.all {
++                    it.state == SlotState.ITEM_CONFIRMED || it.state == SlotState.EMPTY_CONFIRMED
++                } }
++            count(if (complete) "reconhecimentos_completos" else "reconhecimentos_parciais")
++        }
++        fields.put("captura", "Captura ativa").put("dados_atuais", result.currentBoard)
++            .put("quadros_processados", result.frameCount)
+             .put("ultima_analise_utc", Instant.now().toString())
+-            .put("latencia_local_ms", duration)
++            .put("latencia_local_ms", duration).put("processamento_ms", processing)
+             .put("estado", result.status)
+             .put("ocr", result.ocrSummary)
+             .put("base", result.item ?: "Aguardando dados")
+@@ -57,10 +76,13 @@
+             .put("latencia_maxima_ms", maxOf(fields.optLong("latencia_maxima_ms"), duration))
+             .put("placar_atual", result.currentBoard)
+             .put("justificativa_base", result.reason)
++            .put("tempo_estimado", result.clockEstimated)
++            .put("estado_versao", result.stateVersion)
++            .put("inventario_completo", result.inventoryComplete)
+         if (result.observedAt > 0) fields.put("idade_observacao_ms",
+             (SystemClock.elapsedRealtime() - result.observedAt).coerceAtLeast(0))
+         else fields.remove("idade_observacao_ms")
+-        result.localError?.let { fields.put("ultimo_erro", it) }
++        result.localError?.let { fields.put("ultimo_erro", it); count("erros") }
+         persist(true)
+     }
+ 
+@@ -76,6 +98,7 @@
+ 
+     @Synchronized
+     fun deadlineExceeded(duration: Long) {
++        count("quadros_descartados")
+         fields.put("quadros_fora_do_prazo", fields.optInt("quadros_fora_do_prazo") + 1)
+             .put("ultima_latencia_fora_do_prazo_ms", duration)
+             .put("ultimo_erro", "Quadro excedeu o prazo de 1 s")
+@@ -90,6 +113,16 @@
+     }
+ 
+     @Synchronized
++    fun invalidate(status: String, reason: String?) {
++        count("invalidacoes")
++        fields.put("placar_atual", false).put("dados_atuais", false)
++            .put("jogadores", JSONArray()).put("heroi_proprio", JSONObject.NULL)
++            .put("base", JSONObject.NULL).put("tempo_partida", JSONObject.NULL)
++        fields.remove("idade_observacao_ms")
++        state(status, reason)
++    }
++
++    @Synchronized
+     fun error(message: String) {
+         fields.put("ultimo_erro", message)
+         persist(true)
+@@ -98,13 +131,13 @@
+     @Synchronized
+     fun cloud(status: String) {
+         if (fields.optString("ia") == status) return
+-        fields.put("ia", status)
++        fields.put("ia", status).put("backend", CloudSession.backendVersion ?: JSONObject.NULL)
+         persist(true)
+     }
+ 
+     @Synchronized
+     fun ended() {
+-        fields.put("servico_ativo", false)
++        fields.put("servico_ativo", false).put("placar_atual", false).put("dados_atuais", false)
+         if (fields.optString("captura").startsWith("Captura ativa") || fields.optString("captura").isBlank())
+             fields.put("captura", "Encerrada")
+         persist(true)
+@@ -115,14 +148,25 @@
+             val rows = JSONArray()
+             for (player in result.players) {
+                 val slots = JSONArray()
+-                for (slot in player.visualSlots) {
+-                    slots.put(JSONObject().put("slot", slot.index + 1).put("item", slot.name)
+-                        .put("distancia", slot.distance).put("margem", slot.margin))
++                for (slot in player.slots) {
++                    slots.put(JSONObject().put("slot", slot.index + 1)
++                        .put("estado", slot.state.name).put("item", slot.item ?: JSONObject.NULL)
++                        .put("candidato", slot.candidate ?: JSONObject.NULL)
++                        .put("origem", slot.origin).put("observado_ms", slot.observedAt)
++                        .put("confirmado_ms", slot.confirmedAt ?: JSONObject.NULL)
++                        .put("distancia", slot.distance ?: JSONObject.NULL).put("margem", slot.margin ?: JSONObject.NULL))
+                 }
+-                rows.put(JSONObject().put("heroi", player.hero).put("lado", player.team)
++                rows.put(JSONObject().put("heroi", player.hero.takeIf { it.isNotBlank() } ?: JSONObject.NULL)
++                    .put("lado", player.team).put("equipe", player.team).put("jogador_id", player.playerId ?: JSONObject.NULL)
+                     .put("ouro", player.gold ?: JSONObject.NULL).put("kda", player.kda ?: JSONObject.NULL)
+                     .put("nivel", player.level ?: JSONObject.NULL)
+                     .put("lado_indice", player.side ?: JSONObject.NULL).put("linha_indice", player.row ?: JSONObject.NULL)
++                    .put("linha_observada_ms", player.rowSeenAt)
++                    .put("heroi_confirmado_ms", player.heroConfirmedAt ?: JSONObject.NULL)
++                    .put("heroi_observado_ms", player.heroSeenAt ?: JSONObject.NULL)
++                    .put("ouro_observado_ms", player.goldSeenAt ?: JSONObject.NULL)
++                    .put("kda_observado_ms", player.kdaSeenAt ?: JSONObject.NULL)
++                    .put("nivel_observado_ms", player.levelSeenAt ?: JSONObject.NULL)
+                     .put("distancia_retrato", player.heroDistance ?: JSONObject.NULL)
+                     .put("margem_retrato", player.heroMargin ?: JSONObject.NULL).put("slots", slots))
+             }
+--- a/android-app/app/src/main/java/com/mlbb/assistant/MainActivity.kt
++++ b/android-app/app/src/main/java/com/mlbb/assistant/MainActivity.kt
+@@ -145,9 +145,10 @@
+             stopService(Intent(this, ProjectionService::class.java))
+         })
+         ui.addView(space(12))
+-        ui.addView(button("TESTAR RECONHECIMENTO COM PRINT") {
++        ui.addView(button("TESTAR RECONHECIMENTO COM CAPTURAS") {
+             val pick=Intent(Intent.ACTION_OPEN_DOCUMENT).apply{
+-                addCategory(Intent.CATEGORY_OPENABLE);type="image/*"
++                addCategory(Intent.CATEGORY_OPENABLE);type="*/*"
++                putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("image/*", "video/*"))
+                 putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+             }
+             startActivityForResult(pick,7302)
+@@ -155,6 +156,12 @@
+         ui.addView(button("CALIBRAR PLACAR COM PRINT") {
+             val pick=Intent(Intent.ACTION_OPEN_DOCUMENT).apply{addCategory(Intent.CATEGORY_OPENABLE);type="image/*"}
+             startActivityForResult(pick,7303)
++        })
++        ui.addView(button("CALIBRAR SLOT VAZIO") {
++            startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
++                addCategory(Intent.CATEGORY_OPENABLE)
++                type = "image/*"
++            }, 7309)
+         })
+         ui.addView(button("CALIBRAR NÍVEL NO PLACAR"){
+             if(BoardCalibration.decode(prefs.getString("board_calibration",null))==null){toast("Calibre primeiro os retratos e itens do placar.");return@button}
+@@ -497,7 +504,6 @@
+                 toast("Herói não encontrado no catálogo")
+                 return@button
+             }
+-            prefs.edit().putString("hero_hint", hero).apply()
+             result.removeAllViews()
+             result.addView(label(hero + "  •  " + HeroCatalog.rolesOf(hero).joinToString(" / "), 17, gold, true))
+             result.addView(space(7))
+@@ -585,7 +591,7 @@
+         val ui = root()
+         back(ui, "CONFIGURAÇÕES AVANÇADAS")
+         val game = input("Pacote MLBB", prefs.getString("game_package", "com.mobile.legends").orEmpty())
+-        val hero = input("Seu herói na partida (opcional)", prefs.getString("hero_hint", "").orEmpty())
++        val hero = input("Confirmar seu herói na próxima captura", prefs.getString("live_hero_hint", "").orEmpty())
+         val url = input("URL do servidor HTTPS", prefs.getString("url", "").orEmpty())
+         val token = input("Token de acesso ao servidor", prefs.getString("token", "").orEmpty()).apply {
+             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+@@ -603,7 +609,7 @@
+             val chosen = HeroCatalog.find(hero.text.toString())
+             if (hero.text.isNotBlank() && chosen == null) return@button toast("Confira o nome do herói")
+             val editor = prefs.edit().putString("game_package", game.text.toString().trim())
+-                .putString("hero_hint", chosen.orEmpty())
++                .putString("live_hero_hint", chosen.orEmpty())
+             if (BuildConfig.CLOUD_AVAILABLE) editor.putString("url", address).putString("token", token.text.toString().trim())
+             editor.apply()
+             showHome()
+@@ -613,6 +619,20 @@
+                 addCategory(Intent.CATEGORY_OPENABLE)
+                 type = "*/*"
+             }, 7307)
++        })
++        ui.addView(button("RESTAURAR CATÁLOGO ANTERIOR") {
++            AlertDialog.Builder(this).setTitle("Restaurar o catálogo anterior?")
++                .setMessage("O catálogo restaurado será usado depois de encerrar e reabrir o aplicativo.")
++                .setNegativeButton("Cancelar", null)
++                .setPositiveButton("Restaurar") { _, _ ->
++                    Thread {
++                        val restored = runCatching { CatalogStorage.restorePrevious(this) }
++                        runOnUiThread {
++                            restored.onSuccess { toast("Catálogo $it restaurado. Force a parada e abra novamente.") }
++                                .onFailure { toast("Cópia anterior inválida ou indisponível") }
++                        }
++                    }.start()
++                }.show()
+         })
+     }
+ 
+@@ -652,6 +672,10 @@
+             if(resultCode==RESULT_OK)data?.data?.let{showFieldCalibration(it,requestCode==7304)}
+             return
+         }
++        if (requestCode == 7309) {
++            if (resultCode == RESULT_OK) data?.data?.let(::showEmptySlotCalibration)
++            return
++        }
+         if(requestCode==7303){
+             if(resultCode==RESULT_OK)data?.data?.let{showCalibration(it)}
+             return
+@@ -660,7 +684,7 @@
+             if (resultCode == RESULT_OK && data != null) {
+                 val selections = data.clipData?.let { clip -> (0 until clip.itemCount).map { clip.getItemAt(it).uri } }
+                     ?: listOfNotNull(data.data)
+-                val replayUris = selections.distinct().take(2)
++                val replayUris = selections
+                 if (replayUris.isNotEmpty()) showReplay(replayUris)
+             }
+             return
+@@ -706,6 +730,50 @@
+                     .put("servico_ativo", false).toString()).apply()
+             toast("Captura não autorizada")
+         }
++    }
++
++    private fun showEmptySlotCalibration(uri: Uri) {
++        page = "empty-setup"
++        val ui = root()
++        back(ui, "CALIBRAÇÃO DE SLOT VAZIO")
++        ui.addView(label("Marque os cantos do interior de um slot comprovadamente vazio no placar. Use o mesmo tema e resolução da captura ao vivo.", 12, muted))
++        val status = label("Abrindo imagem", 14, cyan, true)
++        ui.addView(status)
++        Thread {
++            val image = runCatching {
++                var saved: android.graphics.Bitmap? = null
++                ReplaySequence(contentResolver).read(listOf(uri)) { frame ->
++                    saved = frame.bitmap.copy(android.graphics.Bitmap.Config.ARGB_8888, false)
++                }
++                checkNotNull(saved)
++            }
++            runOnUiThread {
++                image.onFailure { status.text = "Não foi possível abrir a imagem" }
++                val bitmap = image.getOrNull() ?: return@runOnUiThread
++                if (page != "empty-setup" || isDestroyed || isFinishing) {
++                    bitmap.recycle()
++                    return@runOnUiThread
++                }
++                var reference: EmptySlotReference? = null
++                status.text = "Marque dois cantos opostos"
++                val view = CalibrationView(this, bitmap, 2) { points ->
++                    reference = points.takeIf { it.size == 2 }?.let { EmptySlotReference.create(bitmap, it[0], it[1]) }
++                    status.text = if (reference != null) "Referência selecionada" else "Marque o interior de um slot"
++                }
++                ui.addView(view, LinearLayout.LayoutParams(-1, dp(280)))
++                ui.addView(button("REFAZER MARCAS") { view.reset() })
++                ui.addView(button("SALVAR REFERÊNCIA", true) {
++                    val selected = reference ?: return@button toast("Marque um slot vazio válido")
++                    prefs.edit().putString("empty_slot_calibration", selected.encode()).apply()
++                    toast("Referência salva. Encerre e reinicie a captura.")
++                    showHome()
++                })
++                ui.addView(button("REMOVER REFERÊNCIA") {
++                    prefs.edit().remove("empty_slot_calibration").apply()
++                    showHome()
++                })
++            }
++        }.start()
+     }
+ 
+     private fun showCalibration(uri:Uri){
+@@ -827,38 +895,48 @@
+         page = "replay"
+         replayExport = null
+         val ui = root()
+-        back(ui, "TESTE LOCAL POR PRINT")
+-        ui.addView(label("Selecione dois prints distintos do mesmo placar, em ordem. Um único print mostra apenas candidatos.", 12, muted))
+-        val state = label("Processando ${uris.size} imagem(ns)…", 14, cyan, true)
+-        ui.addView(state)
++        back(ui, "TESTE LOCAL POR SEQUÊNCIA")
++        ui.addView(label("Selecione de 3 a 300 imagens em ordem temporal ou um vídeo autorizado de até cinco minutos. Imagens usam passo de 1 s. Vídeos usam a posição do quadro na faixa.", 12, muted))
++        val status = label("Analisando capturas…", 14, cyan, true)
++        ui.addView(status)
+         val results = card()
+         ui.addView(results)
+         Thread {
+             val outcome = runCatching {
+-                val analyzer = OfflineTextAnalyzer(this)
++                val digests = mutableSetOf<String>()
++                val frames = org.json.JSONArray()
++                var latest: AnalysisResult? = null
++                val analyzer = OfflineTextAnalyzer(this, replay = true)
+                 try {
+-                    uris.map { uri ->
+-                        val bitmap = readReplayFrame(uri)
+-                        try { analyzer.analyze(bitmap, prefs.getString("hero_hint", "").orEmpty()) }
+-                        finally { bitmap.recycle() }
++                    ReplaySequence(contentResolver).read(uris) { frame ->
++                        if (isDestroyed) throw InterruptedException()
++                        val digest = ReplaySequence.contentHash(frame.bitmap)
++                        val duplicate = !digests.add(digest)
++                        val reading = if (duplicate) null else analyzer.analyze(frame.bitmap, "", 1_000 + frame.timeMs)
++                        if (reading != null) latest = reading
++                        val export = org.json.JSONObject().put("quadro", frame.index)
++                            .put("tempo_ms", frame.timeMs).put("sha256", digest).put("duplicado", duplicate)
++                        if (reading != null) export.put("estado", reading.status)
++                            .put("placar_atual", reading.currentBoard)
++                            .put("tempo_partida", reading.matchTime ?: org.json.JSONObject.NULL)
++                            .put("heroi_proprio", reading.hero ?: org.json.JSONObject.NULL)
++                            .put("ocr", reading.ocrSummary)
++                            .put("jogadores", LiveDiagnostics.playerRows(reading))
++                        frames.put(export)
+                     }
+-                } finally { analyzer.close() }
++                } finally {
++                    analyzer.close()
++                }
++                val export = org.json.JSONObject().put("apk", BuildConfig.VERSION_NAME)
++                    .put("origem", "replay_local").put("passo_ms", 1000)
++                    .put("quadros", frames).toString(2)
++                Triple(export, latest, frames.length() - digests.size)
+             }
+             runOnUiThread {
+                 if (page != "replay" || isFinishing || isDestroyed) return@runOnUiThread
+-                outcome.onSuccess { readings ->
+-                    state.text = "Leitura local concluída"
+-                    val latest = readings.last()
+-                    replayExport = org.json.JSONObject()
+-                        .put("apk", BuildConfig.VERSION_NAME)
+-                        .put("origem", "replay_local")
+-                        .put("quadros", readings.size)
+-                        .put("estado", latest.status)
+-                        .put("placar_atual", latest.currentBoard)
+-                        .put("tempo_partida", latest.matchTime ?: org.json.JSONObject.NULL)
+-                        .put("heroi_proprio", latest.hero ?: org.json.JSONObject.NULL)
+-                        .put("ocr", latest.ocrSummary)
+-                        .put("jogadores", LiveDiagnostics.playerRows(latest)).toString(2)
++                outcome.onSuccess { (export, reading, duplicates) ->
++                    replayExport = export
++                    status.text = "Sequência processada • $duplicates duplicatas excluídas"
+                     results.addView(button("EXPORTAR LEITURA JSON") {
+                         startActivityForResult(Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                             addCategory(Intent.CATEGORY_OPENABLE)
+@@ -866,8 +944,8 @@
+                             putExtra(Intent.EXTRA_TITLE, "mlbb-leitura.json")
+                         }, 7308)
+                     })
+-                    for ((index, reading) in readings.withIndex()) {
+-                        results.addView(label("Quadro ${index + 1} • ${reading.status}", 13, cyan, true))
++                    if (reading != null) {
++                        results.addView(label(reading.status, 13, cyan, true))
+                         results.addView(label(reading.visionStatus, 12, muted))
+                         results.addView(label("Herói • ${reading.hero ?: "desconhecido"}", 14, gold, true))
+                         results.addView(label("Compra • ${reading.item ?: "indisponível"}", 14, gold, true))
+@@ -877,23 +955,9 @@
+                             results.addView(label("${player.hero} • ${player.team} • ${slots.ifBlank { "itens desconhecidos" }}", 12, white))
+                         }
+                     }
+-                }.onFailure { state.text = "Falha na leitura (${it.javaClass.simpleName})" }
++                }.onFailure { status.text = "Falha na leitura (${it.javaClass.simpleName})" }
+             }
+         }.start()
+-    }
+-
+-    private fun readReplayFrame(uri: Uri): android.graphics.Bitmap {
+-        val opts = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+-        requireNotNull(contentResolver.openInputStream(uri)).use {
+-            android.graphics.BitmapFactory.decodeStream(it, null, opts)
+-        }
+-        require(opts.outWidth > 0 && opts.outHeight > 0)
+-        var sample = 1
+-        while (maxOf(opts.outWidth, opts.outHeight) / sample > 2300) sample *= 2
+-        return requireNotNull(contentResolver.openInputStream(uri)).use {
+-            requireNotNull(android.graphics.BitmapFactory.decodeStream(it, null,
+-                android.graphics.BitmapFactory.Options().apply { inSampleSize = sample }))
+-        }
+     }
+ 
+     private fun back(ui: LinearLayout, name: String) {
+--- a/android-app/app/src/main/java/com/mlbb/assistant/OfflineTextAnalyzer.kt
++++ b/android-app/app/src/main/java/com/mlbb/assistant/OfflineTextAnalyzer.kt
+@@ -10,232 +10,188 @@
+ import com.google.mlkit.vision.text.TextRecognition
+ import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+ import java.util.concurrent.TimeUnit
+-import java.text.Normalizer
+ import kotlin.math.abs
+ 
+-/** Pipeline local com evidências separadas de hipóteses e memória limitada à sessão. */
+-class OfflineTextAnalyzer(context: Context) {
++/** The same analyzer accepts live frames and local authorized replay sequences. */
++class OfflineTextAnalyzer(context: Context, replay: Boolean = false) {
+     private val dataset = CatalogStorage.load(context)
+-    private val recognizer=TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
++    private val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+     private var ocrTask: Task<Text>? = null
+-    private val matcher=DetailedMatcher(context)
+-    private val prefs=context.getSharedPreferences("settings",Context.MODE_PRIVATE)
+-    private var recent=emptyList<ObservedPlayer>()
+-    private var lastSeen=0L
+-    private var candidateSelf:String?=null
+-    private var previousHighlight:String?=null
+-    private var self:String?=null
+-    private var frames=0
+-    private var previousBoard=emptyList<DetailedMatcher.Row>()
+-    private var previousBoardAt=0L
+-    private val history=Evidence14.History()
+-    private var historyText=""
+-    private val boardLayout=BoardCalibration.decode(prefs.getString("board_calibration",null))
+-    private val levelProfile=boardLayout?.let{Fields15.decode(prefs.getString("levels_calibration",null),it)}
+-    private val cashProfile=Fields15.decode(prefs.getString("budget_calibration",null))
+-    private val cashRepeat=Fields15.Repeated(12_000)
+-    private var confirmedCash:Int?=null
+-    private var previousLevels=emptyMap<String,Int>()
+-    private var cachedState:StrategicEngine.State?=null
+-    private var cachedAdvice:StrategicEngine.Result?=null
+-    private var matchClock:String?=null
+-    private var statsCandidates=emptyMap<String,Pair<String?,String?>>()
+-    private var clockCandidate:String?=null
+-    private fun norm(s:String)=Normalizer.normalize(s,Normalizer.Form.NFD)
+-        .replace(Regex("\\p{M}+"),"").lowercase()
++    private val matcher = DetailedMatcher(context)
++    private val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
++    private val match = if (replay) MatchTracker("replay") else MatchTracker()
++    private val boardLayout = BoardCalibration.decode(prefs.getString("board_calibration", null))
++    private val levelProfile = boardLayout?.let { Fields15.decode(prefs.getString("levels_calibration", null), it) }
++    private val cashProfile = Fields15.decode(prefs.getString("budget_calibration", null))
++    private var cash = RepeatedField<Int>(7_000L)
++    private var frames = 0
++    private var phase = ScreenEvidence.UNKNOWN
++    private var cached: Pair<StrategicEngine.State, StrategicEngine.Result>? = null
++
+     internal fun reset() {
+-        recent=emptyList();lastSeen=0L;candidateSelf=null;previousHighlight=null;self=null
+-        previousBoard=emptyList();previousBoardAt=0L;matchClock=null;statsCandidates=emptyMap();clockCandidate=null;history.clear();historyText="";cachedState=null;cachedAdvice=null;previousLevels=emptyMap();cashRepeat.clear();confirmedCash=null
++        match.reset()
++        cash = RepeatedField(7_000L)
++        cached = null
++        phase = ScreenEvidence.UNKNOWN
+     }
+-    fun analyze(b: Bitmap, heroHint: String, now: Long = SystemClock.elapsedRealtime()): AnalysisResult {
+-        try {
+-            frames++
+-            if (!FrameContent.hasDetail(b)) {
+-                reset()
+-                return failure("Quadro sem detalhes")
++
++    fun analyze(bitmap: Bitmap, heroHint: String, now: Long = SystemClock.elapsedRealtime()): AnalysisResult {
++        frames++
++        if (!FrameContent.hasDetail(bitmap)) return failure("Quadro sem detalhes")
++        return try { analyzeValid(bitmap, heroHint, now) }
++        catch (error: Exception) { failure("Falha de leitura: " + error.javaClass.simpleName) }
++    }
++
++    private fun analyzeValid(b: Bitmap, heroHint: String, now: Long): AnalysisResult {
++        val recognized = runCatching { readText(b) }
++        val lines = recognized.getOrNull()?.textBlocks.orEmpty().flatMap { it.lines }
++        val tokens = lines.flatMap { it.elements }
++        val ocrError = recognized.exceptionOrNull()?.javaClass?.simpleName
++        val summary = if (ocrError == null) "${lines.size} linhas • ${tokens.size} elementos" else "Falha OCR ($ocrError)"
++        val screen = ScreenEvidence.classify(lines.map { it.text })
++        val boundary = screen in setOf(ScreenEvidence.POST_MATCH, ScreenEvidence.DRAFT, ScreenEvidence.LOADING)
++        if (boundary && screen != phase) reset()
++        if (screen != ScreenEvidence.UNKNOWN) phase = screen
++        if (phase in setOf(ScreenEvidence.POST_MATCH, ScreenEvidence.DRAFT, ScreenEvidence.LOADING) &&
++            (boundary || screen == ScreenEvidence.UNKNOWN)) {
++            val picks = if (phase == ScreenEvidence.DRAFT) {
++                val names = lines.mapNotNull { line ->
++                    val x = line.boundingBox?.centerX() ?: return@mapNotNull null
++                    HeroCatalog.find(line.text.trim())?.takeIf { x < b.width * .28 || x > b.width * .72 }
++                }.distinct()
++                Strategy13.draft(prefs.getString("lane_hint", "Selva") ?: "Selva", "", "",
++                    prefs.getString("draft_favorites", "").orEmpty(), names.joinToString(","),
++                    prefs.getString("strategy_rank", "all") ?: "all").take(3)
++            } else emptyList()
++            return AnalysisResult(when (phase) {
++                ScreenEvidence.DRAFT -> "Seleção de personagens"
++                ScreenEvidence.LOADING -> "Carregamento da partida"
++                else -> "Resultado final"
++            }, null, if (picks.isEmpty()) "Aguardando estado da partida" else "Sugestões preliminares de seleção",
++                0, "OCR local", null, 0, 0, summary, draftPicks = picks.map { it.hero },
++                alternatives = picks.map { it.reason }, frameCount = frames, ocrSummary = summary)
++        }
++
++        val timer = tokens.mapNotNull { token ->
++            val bounds = token.boundingBox ?: return@mapNotNull null
++            ObservationParser.clockSeconds(token.text)?.takeIf {
++                bounds.centerY() < b.height * .24 && bounds.centerX() in (b.width / 4)..(b.width * 3 / 4)
+             }
+-            val ocr = runCatching { readText(b) }
+-            val text = ocr.getOrNull()
+-            val ocrError = ocr.exceptionOrNull()?.javaClass?.simpleName
+-            val t = norm(text?.text.orEmpty())
+-            val lines = text?.textBlocks.orEmpty().flatMap { it.lines }
+-            val tokens = lines.flatMap { it.elements }
+-            val ocrSummary = if (ocrError == null) "${lines.size} linhas • ${tokens.size} elementos"
+-                else "Falha OCR ($ocrError)"
+-            val post=listOf("defeat","victory","derrota","vitoria","return to lobby","retornar ao lobby").any{
+-                Regex("\\b"+it+"\\b").containsMatchIn(t)}
+-            if(post) {
+-                reset()
+-                return AnalysisResult("Resultado final",null,"Partida encerrada; dados descartados.",0,
+-                    "OCR local",null,0,0,"Nenhuma compra durante resultado final",frameCount=frames,ocrSummary=ocrSummary)
++        }.distinct().singleOrNull()
++        if (timer != null && screen !in setOf(ScreenEvidence.SHOP, ScreenEvidence.INVENTORY)) match.observeClock(timer, now)
++
++        val anchors = tokens.mapNotNull { token ->
++            val bounds = token.boundingBox ?: return@mapNotNull null
++            if (ObservationParser.kda(listOf(token.text)) != null)
++                DetailedMatcher.Anchor(bounds.centerX(), bounds.centerY()) else null
++        }
++        val board = if (b.width > b.height && screen !in setOf(ScreenEvidence.SHOP, ScreenEvidence.INVENTORY, ScreenEvidence.DEATH))
++            matcher.board(b, screen == ScreenEvidence.SCOREBOARD, anchors) else DetailedMatcher.Board(emptyList(), 0)
++        fun inBox(box: Fields15.Box) = tokens.filter { el -> el.boundingBox?.let { q ->
++            box.contains(q.centerX().toDouble() / b.width, q.centerY().toDouble() / b.height)
++        } == true }.sortedBy { it.boundingBox?.left ?: 0 }.map { it.text }
++
++        val bySide = board.rows.groupBy { it.side }.mapValues { (_, rows) -> rows.sortedBy { it.index }.map { it.centerY } }
++        val readings = board.rows.map { row ->
++            val region = tokens.filter { el ->
++                val q = el.boundingBox ?: return@filter false
++                (q.centerX() < b.width / 2) == (row.side == 0) &&
++                    RowBounds.includes(bySide.getValue(row.side), row.index, q.centerY(), (b.height * .05).toInt())
++            }.map { it.text }
++            val level = if (board.layout == "layout calibrado" && boardLayout != null &&
++                levelProfile?.compatible(b.width, b.height) == true)
++                levelProfile.levelBox(boardLayout, row.side, row.index)?.let { Fields15.level(inBox(it)) } else null
++            val named = lines.mapNotNull { line ->
++                val q = line.boundingBox ?: return@mapNotNull null
++                if ((q.centerX() < b.width / 2) == (row.side == 0) &&
++                    abs(q.centerX() - row.centerX) < b.width * .10 &&
++                    RowBounds.includes(bySide.getValue(row.side), row.index, q.centerY(), (b.height * .05).toInt()))
++                    HeroCatalog.find(line.text.trim()) else null
++            }.distinct().singleOrNull()
++            val hero = when {
++                row.hero == null -> named
++                named == null || named == row.hero.name -> row.hero.name
++                else -> null
+             }
+-            val draft=listOf("selecao de herois","selecionar heroi","escolha de herois","hero selection",
+-                "pick a hero","ban hero","banir heroi","escolha seu heroi","banimento","your turn","sua vez")
+-                .any{it in t}
+-            val shop=listOf("equipamentos","equipment","loja","shop","recomendado").any{it in t}
+-            val statsLabel=listOf("estatisticas","statistics","atributos","attributes","scoreboard","desempenho da equipe").any{it in t}
+-            val clocks=tokens.filter{el->Regex("^[0-9]{1,2}:[0-5][0-9]$").matches(el.text)&&
+-                (el.boundingBox?.centerY()?:b.height)<b.height*.24}.map{it.text}
+-            fun inBox(box:Fields15.Box)=tokens.filter{el->el.boundingBox?.let{q->
+-                box.contains(q.centerX().toDouble()/b.width,q.centerY().toDouble()/b.height)
+-            }==true}.sortedBy{it.boundingBox?.left?:0}.map{it.text}
+-            val strongShop=listOf("equipamentos","equipment","loja","shop").any{Regex("\\b"+it+"\\b").containsMatchIn(t)}
+-            val board = if (!draft && b.width > b.height)
+-                matcher.board(b, statsLabel) else DetailedMatcher.Board(emptyList(), 0)
+-            val manual = HeroCatalog.find(heroHint.ifBlank { prefs.getString("hero_hint", "").orEmpty() })
+-            if(draft) {
+-                reset()
+-                val lane=prefs.getString("lane_hint","Selva")?:"Selva"
+-                val left=mutableListOf<String>();val right=mutableListOf<String>()
+-                for (line in lines) {
+-                    val name=HeroCatalog.find(line.text.trim())?:continue
+-                    val x=line.boundingBox?.centerX()?:continue
+-                    if(x<b.width*.28)left.add(name) else if(x>b.width*.72)right.add(name)
+-                }
+-                val named = HeroCatalog.heroes.filter { hero -> lines.any { norm(it.text.trim()) == norm(hero) } }
+-                // Exclude visible names conservatively; side association remains a hypothesis.
+-                val excluded=(left+right).distinct().joinToString(",")
+-                val picks=Strategy13.draft(lane,"","",prefs.getString("draft_favorites","").orEmpty(),excluded,prefs.getString("strategy_rank","all")?:"all").take(3)
+-                return AnalysisResult("Seleção de personagens",null,
+-                    "Função: $lane. Nomes laterais excluídos por cautela; lados e bans não confirmados. Use o draft manual para composição precisa.",
+-                    named.size,"OCR local • sugestões preliminares",null,0,0,
+-                    "Nomes lidos: "+named.joinToString(", ").ifBlank{"nenhum confirmado"},
+-                    draftPicks=picks.map{it.hero}, alternatives=picks.map{it.reason},frameCount=frames,
+-                    observedAt=now,ocrSummary=ocrSummary)
+-            }
+-            if(lastSeen>0&&!Evidence14.fresh(now,lastSeen)){reset()}
+-            var confirmedBoard = false
+-            if(board.rows.isNotEmpty()) {
+-                if(!Evidence14.pairFresh(now,previousBoardAt)){
+-                    previousBoard=emptyList();previousHighlight=null;statsCandidates=emptyMap();clockCandidate=null;previousLevels=emptyMap()
+-                }
+-                val highlighted = matcher.highlight(b, board.rows)?.hero?.name
+-                candidateSelf = highlighted
+-                val accepted = board.rows.filter { row ->
+-                    row.hero != null && previousBoard.any { old ->
+-                        old.side == row.side && old.index == row.index &&
+-                            old.hero?.name == row.hero.name && abs(old.centerY - row.centerY) < b.height * .035
+-                    }
+-                }
+-                val asserted = manual?.takeIf { hint -> accepted.any { it.hero?.name == hint } }
+-                val repeatedHighlight = highlighted?.takeIf { name ->
+-                    name == previousHighlight && accepted.any { it.hero?.name == name }
+-                }
+-                val selected = asserted ?: repeatedHighlight
+-                previousHighlight = highlighted
+-                val ownRow=accepted.singleOrNull{it.hero?.name==selected}
+-                val side=ownRow?.side
+-                if(accepted.isNotEmpty()) {
+-                    confirmedBoard = true
+-                    self = selected
+-                    val nextStats=mutableMapOf<String,Pair<String?,String?>>()
+-                    val nextLevels=mutableMapOf<String,Int>()
+-                    recent=accepted.map{r->
+-                        val h=r.hero!!
+-                        val old=previousBoard.first{it.side==r.side&&it.index==r.index}
+-                        val stable=Evidence14.stableSlots(old.items.map{Evidence14.Slot(it.slot,it.name,it.distance,it.margin)},r.items.map{Evidence14.Slot(it.slot,it.name,it.distance,it.margin)})
+-                        val items=r.items.filter{x->stable.any{it.index==x.slot&&it.name==x.name}}
+-                        val region=tokens.filter{el->
+-                            val q=el.boundingBox?:return@filter false
+-                            abs(q.centerY()-r.centerY)<b.height*.055 &&
+-                                (if(r.side==0)q.centerX()<b.width*.5 else q.centerX()>b.width*.5)
+-                        }.map{it.text}
+-                        val key=r.side.toString()+":"+r.index+":"+h.name
+-                        val goldCandidate=ObservationParser.gold(region)
+-                        val kdaCandidate=ObservationParser.kda(region)
+-                        val levelCandidate=if(boardLayout!=null&&levelProfile?.compatible(b.width,b.height)==true)
+-                            levelProfile.levelBox(boardLayout,r.side,r.index)?.let{Fields15.level(inBox(it))} else null
+-                        if(levelCandidate!=null)nextLevels[key]=levelCandidate
+-                        val confirmedLevel=levelCandidate?.takeIf{it==previousLevels[key]}
+-                        val previous=statsCandidates[key]
+-                        nextStats[key]=goldCandidate to kdaCandidate
+-                        val gold=ObservationParser.compatibleGold(previous?.first,goldCandidate)
+-                        val kda=kdaCandidate?.takeIf{it==previous?.second}
+-                        ObservedPlayer(h.name,if(side==null)"Lado "+(r.side+1)
+-                            else if(r.side==side)"Aliado" else "Inimigo",items.map{it.name},
+-                            gold,kda,matcher.thumbnail(b,h),
+-                            items.mapNotNull{it2->matcher.thumbnail(b,it2)?.let{img->it2.name to img}}.toMap(),level=confirmedLevel, visualSlots=stable, heroDistance=h.distance, heroMargin=h.margin, side=r.side, row=r.index)
+-                    }
+-                    statsCandidates=nextStats;previousLevels=nextLevels
+-                    val frame = Evidence14.Frame(now, ObservationParser.clockSeconds(matchClock), accepted.zip(recent).map { (row, player) ->
+-                        Evidence14.Player(player.hero, row.side, row.index, player.visualSlots, player.gold?.toIntOrNull(), player.kda)
+-                    })
+-                    val update=history.record(frame)
+-                    historyText="Histórico local: "+update.frames+" quadros confirmados"+(if(update.reset)" • novo segmento" else "")
+-                    if(update.changes.isNotEmpty())historyText+=" • "+update.changes.take(3).joinToString("; "){c->c.hero+" "+(c.replacements+listOfNotNull(c.goldDelta?.takeIf{it>0}?.let{"ouro total +"+it},if(c.kdaChanged)"KDA alterado" else null)).joinToString(", ")}
+-                    lastSeen=now
+-                }
+-                previousBoard=board.rows;previousBoardAt=now
+-                if(clocks.size==1){
+-                    val c=clocks[0];val old=ObservationParser.clockSeconds(clockCandidate)
+-                    val current=ObservationParser.clockSeconds(c)
+-                    if(old!=null&&current!=null&&current-old in 0..25)matchClock=c
+-                    clockCandidate=c
+-                }
+-            } else {
+-                previousBoard=emptyList();previousBoardAt=0L
+-                previousHighlight=null
+-                statsCandidates=emptyMap();clockCandidate=null;previousLevels=emptyMap()
+-            }
+-            if(lastSeen>0&&!Evidence14.fresh(now,lastSeen)){reset()}
+-            val hero = self
+-            val rivals=recent.filter{it.team=="Inimigo"}
+-            val own=recent.singleOrNull{it.hero==hero}
+-            val enemyItems=rivals.flatMap{it.items}
+-            val owned=own?.items?:emptyList()
+-            val cash=if(strongShop&&board.rows.isEmpty()&&own!=null&&lastSeen>0&&Evidence14.fresh(now,lastSeen)&&cashProfile?.compatible(b.width,b.height)==true)
+-                cashProfile.boxes.singleOrNull()?.let{Fields15.budget(inBox(it))} else null
+-            confirmedCash=cashRepeat.next(cash,now)
+-            fun strategic(p:ObservedPlayer):StrategicEngine.Player {
+-                val k=p.kda?.split("/")?.mapNotNull{it.toIntOrNull()}.orEmpty()
+-                return StrategicEngine.Player(p.hero,p.items,p.gold?.toIntOrNull(),k.getOrNull(0),k.getOrNull(1),k.getOrNull(2),p.level)
+-            }
+-            val strategyState=StrategicEngine.State(hero ?: manual,owned,
+-                rivals.map(::strategic),recent.filter{it.team=="Aliado"&&it.hero!=hero}.map(::strategic),
+-                ownGold=own?.gold?.toIntOrNull(),ownLevel=own?.level,budget=confirmedCash,minute=matchClock?.substringBefore(":")?.toIntOrNull(),
+-                inventoryKnown=false,lane=prefs.getString("build_lane",null)?.takeUnless{it=="Automática"},rank=prefs.getString("strategy_rank","all")?:"all")
+-            val advice=if(cachedState==strategyState&&cachedAdvice!=null)cachedAdvice!! else Strategy13.recommend(strategyState).also{cachedState=strategyState;cachedAdvice=it}
+-            val state=when {
+-                board.rows.isNotEmpty()&&!confirmedBoard->"Placar candidato • confirmando próximo quadro"
+-                board.rows.isNotEmpty()->"Placar • observações repetidas"
+-                statsLabel->"Placar lido, ícones insuficientes"
+-                shop->"Loja • nomes visíveis não são compras"
+-                else->"Captura ativa • abra o placar"
+-            }
+-            val shopNames=if(shop)lines.mapNotNull{GameData13.current?.canonicalItem(it.text.trim())?:StrategicEngine.canonicalItem(it.text.trim())}.distinct().take(8)else emptyList()
+-            val observed=recent.size+recent.sumOf{it.items.size}
+-            val explanation = when {
+-                hero != null && hero == manual -> "Herói informado e localizado no placar"
+-                hero != null -> "Herói provável por destaque repetido"
+-                manual != null -> "Plano inicial • herói informado • placar sem confirmação"
+-                else -> "Herói não identificado"
+-            }
+-            return AnalysisResult(state,advice.next,advice.reason,observed,
+-                explanation,hero ?: manual,rivals.size,enemyItems.size,
+-                ocrSummary+" • "+matcher.count+" referências • "+board.support+" candidatos • "+board.layout+
+-                    (if(candidateSelf!=null)" • destaque: "+candidateSelf else "")+(if(shopNames.isNotEmpty())" • nomes na loja: "+shopNames.joinToString(", ") else "")+(if(historyText.isNotBlank())" • "+historyText else "")+(confirmedCash?.let{" • saldo provável $it (loja)"}?:""),
+-                players=recent, alternatives=advice.alternatives,
+-                threatSummary=advice.threat,matchTime=matchClock,observedAt=lastSeen,frameCount=frames,
+-                buildPlan=advice.plan,purchaseDetail=advice.purchase.orEmpty(), currentBoard=confirmedBoard,
+-                ocrSummary=ocrSummary, localError=ocrError ?: if(dataset == null) "Banco indisponível" else matcher.referenceError)
+-        }catch(e:Exception){return failure("Falha de leitura: "+e.javaClass.simpleName)}
++            RowReading(row.side, row.index, hero, row.slots, ObservationParser.gold(region),
++                ObservationParser.kda(region), level, row.hero?.distance, row.hero?.margin)
++        }
++        val highlight = matcher.highlight(b, board.rows)?.let { it.side to it.index }
++        val state = match.observe(readings, highlight, HeroCatalog.find(heroHint), now)
++        val own = state.own
++        val players = state.players.map { row ->
++            val confirmedItems = row.slots.filter { it.state == SlotState.ITEM_CONFIRMED && it.item != null }
++            val current = board.rows.firstOrNull { it.side == row.side && it.index == row.row }
++            val hero = row.hero?.value.orEmpty()
++            val side = if (own == null) "Lado ${row.side + 1}" else if (own.side == row.side) "Aliado" else "Inimigo"
++            ObservedPlayer(hero, side, confirmedItems.mapNotNull { it.item },
++                row.gold?.value, row.kda?.value, current?.hero?.takeIf { it.name == hero }?.let { matcher.thumbnail(b, it) },
++                current?.items.orEmpty().mapNotNull { hit ->
++                    if (confirmedItems.any { it.index == hit.slot && it.item == hit.name }) matcher.thumbnail(b, hit)?.let { hit.name to it } else null
++                }.toMap(), row.level?.value,
++                confirmedItems.map { Evidence14.Slot(it.index, it.item, it.distance, it.margin) },
++                row.distance, row.margin, row.side, row.row, row.id, row.slots, row.observedAt,
++                row.hero?.confirmedAt, row.hero?.lastSeenAt, row.gold?.lastSeenAt, row.kda?.lastSeenAt, row.level?.lastSeenAt)
++        }
+ 
++        val budget = if (screen == ScreenEvidence.SHOP && own != null && cashProfile?.compatible(b.width, b.height) == true)
++            cashProfile.boxes.singleOrNull()?.let { Fields15.budget(inBox(it)) } else null
++        cash.observe(budget, now)
++        val confirmedCash = cash.current(now)?.value.takeIf { screen == ScreenEvidence.SHOP }
++        val ownPlayer = players.singleOrNull { it.playerId == own?.id }
++        val rivals = players.filter { it.team == "Inimigo" && it.hero.isNotBlank() }
++        fun strategic(p: ObservedPlayer): StrategicEngine.Player {
++            val kda = p.kda?.split("/")?.mapNotNull { it.toIntOrNull() }.orEmpty()
++            return StrategicEngine.Player(p.hero, p.items, p.gold?.toIntOrNull(), kda.getOrNull(0), kda.getOrNull(1), kda.getOrNull(2), p.level)
++        }
++        val complete = ownPlayer?.slots?.let { slots -> slots.size == 6 && slots.all {
++            it.state in setOf(SlotState.ITEM_CONFIRMED, SlotState.EMPTY_CONFIRMED) && now - it.observedAt <= 8_000L
++        } } == true
++        val strategy = StrategicEngine.State(own?.hero?.value, ownPlayer?.items.orEmpty(),
++            rivals.map(::strategic), players.filter { it.team == "Aliado" && it.playerId != own?.id && it.hero.isNotBlank() }.map(::strategic),
++            ownGold = ownPlayer?.gold?.toIntOrNull(), ownLevel = ownPlayer?.level, budget = confirmedCash,
++            minute = state.clock?.substringBefore(":")?.toIntOrNull(), inventoryKnown = complete,
++            lane = prefs.getString("build_lane", null)?.takeUnless { it == "Automática" },
++            rank = prefs.getString("strategy_rank", "all") ?: "all")
++        val advice = cached?.takeIf { it.first == strategy }?.second ?: Strategy13.recommend(strategy).also { cached = strategy to it }
++        val currentBoard = state.boardAt == now && board.rows.isNotEmpty()
++        val status = when {
++            currentBoard && own != null -> "Placar • estado atualizado"
++            currentBoard -> "Placar • confirme seu herói se ele não estiver destacado"
++            screen == ScreenEvidence.SCOREBOARD -> "Placar sem estrutura confirmada • confira a calibração"
++            screen == ScreenEvidence.SHOP -> "Loja • " + (confirmedCash?.let { "saldo confirmado $it" } ?: "saldo desconhecido")
++            screen == ScreenEvidence.INVENTORY -> "Inventário"
++            screen == ScreenEvidence.DEATH -> "Tela de morte"
++            else -> "Abra o placar para atualizar jogadores e itens"
++        }
++        val details = listOf(summary, "${matcher.count} referências", "${board.support} retratos", board.layout,
++            state.changes.take(3).joinToString(" • ")).filter { it.isNotBlank() }.joinToString(" • ")
++        val observations = players.sumOf { (if (it.hero.isBlank()) 0 else 1) + it.items.size }
++        return AnalysisResult(status, advice.next, advice.reason, observations,
++            if (own == null) "Herói próprio desconhecido" else "Herói associado à linha do jogador",
++            own?.hero?.value, rivals.size, rivals.sumOf { it.items.size }, details,
++            players = players, alternatives = advice.alternatives, threatSummary = advice.threat,
++            matchTime = state.clock, observedAt = state.boardAt.coerceAtLeast(0), frameCount = frames,
++            buildPlan = advice.plan, purchaseDetail = advice.purchase.orEmpty(), currentBoard = currentBoard,
++            ocrSummary = summary, localError = ocrError ?: if (dataset == null) "Banco indisponível" else matcher.referenceError,
++            matchId = state.matchId, stateVersion = state.version, ownPlayerId = own?.id,
++            clockEstimated = state.estimatedClock, inventoryComplete = complete,
++            recommendation = advice.recommendation, futureAlternatives = advice.futureAlternatives)
+     }
++
+     private fun readText(frame: Bitmap): Text {
+         check(ocrTask?.isComplete != false) { "OCR ainda ocupado" }
+         val image = checkNotNull(frame.copy(Bitmap.Config.ARGB_8888, false))
+-        val task = try {
+-            recognizer.process(InputImage.fromBitmap(image, 0))
+-        } catch (error: Exception) {
+-            image.recycle()
+-            throw error
+-        }
++        val task = try { recognizer.process(InputImage.fromBitmap(image, 0)) }
++        catch (error: Exception) { image.recycle(); throw error }
+         ocrTask = task
+         task.addOnCompleteListener({ action -> action.run() }) { image.recycle() }
+         return Tasks.await(task, FrameBudget.OCR_MS, TimeUnit.MILLISECONDS)
+     }
+ 
+-    private fun failure(message:String)=AnalysisResult(message,null,"Sem leitura suficiente.",0,
+-        "Visão local",null,0,0,"Verifique o contador de quadros e a permissão de captura.",frameCount=frames,localError=message)
+-    fun close(){recognizer.close();reset()}
++    private fun failure(message: String) = AnalysisResult(message, null, "Sem leitura suficiente.", 0,
++        "Visão local", null, 0, 0, "Verifique o contador de quadros e a permissão de captura.",
++        frameCount = frames, localError = message, frameValid = false)
++
++    fun close() { recognizer.close(); reset() }
+ }
+--- a/android-app/app/src/main/java/com/mlbb/assistant/OverlayPanel.kt
++++ b/android-app/app/src/main/java/com/mlbb/assistant/OverlayPanel.kt
+@@ -55,7 +55,8 @@
+     private val p=WindowManager.LayoutParams(dp(62),WindowManager.LayoutParams.WRAP_CONTENT,
+         WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+         WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+-        WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or WindowManager.LayoutParams.FLAG_SECURE,
++        WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or WindowManager.LayoutParams.FLAG_SECURE or
++        WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
+         android.graphics.PixelFormat.TRANSLUCENT).apply { gravity=Gravity.TOP or Gravity.END;x=dp(8);y=dp(70) }
+ 
+     fun show(){
+@@ -105,6 +106,7 @@
+         p.width=if(expanded) minOf(dp(320), (metrics.widthPixels*.44).toInt().coerceAtLeast(dp(220))) else dp(62)
+         scroll.layoutParams=LinearLayout.LayoutParams(-1,if(expanded) minOf(dp(460),(metrics.heightPixels*.75).toInt()) else 0)
+         clamp();if(attached)wm.updateViewLayout(surface,p)
++        if (expanded) lastResult?.let(::renderExpanded)
+     }
+     fun showStatus(message: String) {
+         status.text = message
+@@ -136,10 +138,24 @@
+     fun showResult(result:AnalysisResult){
+         lastResult=result
+         status.text=result.status
+-        if(!expanded)heading.text="M •"
++        if (!expanded) {
++            heading.text = if (result.hero != null) "M •" else "M"
++            return
++        }
++        renderExpanded(result)
++    }
++
++    fun afterFrameCommit(callback: () -> Unit): Boolean {
++        if (!attached || !surface.isHardwareAccelerated || !surface.viewTreeObserver.isAlive) return false
++        surface.viewTreeObserver.registerFrameCommitCallback { timer.post(callback) }
++        surface.invalidate()
++        return true
++    }
++
++    private fun renderExpanded(result: AnalysisResult) {
+         hero.text=result.hero?:"Não identificado"
+         heroSource.text=result.source
+-        val own=result.players.singleOrNull{it.hero.equals(result.hero,true)}
++        val own=result.players.singleOrNull{if(result.ownPlayerId!=null)it.playerId==result.ownPlayerId else it.hero.equals(result.hero,true)}
+         heroPortrait.setImageBitmap(own?.portrait)
+         heroPortrait.visibility=if(own?.portrait!=null)View.VISIBLE else View.GONE
+         title.text=if(result.draftPicks.isNotEmpty())"SMART HERO PICK" else "PRÓXIMA COMPRA RECOMENDADA"
+@@ -148,7 +164,10 @@
+         itemArt.setImageBitmap(art)
+         itemArt.visibility=if(art!=null&&result.draftPicks.isEmpty())View.VISIBLE else View.GONE
+         reason.text=result.reason
+-        alternate.text=if(result.alternatives.isEmpty())"" else result.alternatives.take(3).joinToString("\n")
++        alternate.text = listOf(
++            result.alternatives.take(3).joinToString("\n"),
++            result.futureAlternatives.takeIf { it.isNotEmpty() }?.let { "Opções futuras • libere um slot\n" + it.joinToString(", ") }.orEmpty()
++        ).filter { it.isNotBlank() }.joinToString("\n")
+         plan.text=if(result.buildPlan.isEmpty())"" else "PLANO CANDIDATO\n"+result.buildPlan.mapIndexed { i,n ->
+             val owned=own?.items.orEmpty().any{GameData13.normalizeItem(it).equals(GameData13.normalizeItem(n),true)}
+             (if(owned)"✓ " else if(n==result.item)"▶ " else (i+1).toString()+". ")+n
+@@ -164,9 +183,9 @@
+         threats.text=result.threatSummary.ifBlank{"Sem evidência de ameaças"}
+         playerRows.removeAllViews()
+         if(result.players.isEmpty())playerRows.addView(label("Nenhum jogador confirmado por leituras repetidas.",11,muted))
+-        fun asEvidence(v:ObservedPlayer)=Panel16.Row(v.hero,v.team,v.items,v.gold,v.kda,v.level)
++        fun asEvidence(v:ObservedPlayer)=Panel16.Row(v.hero,v.team,v.items,v.gold,v.kda,v.level,v.playerId,v.slots)
+         val evidence=result.players.take(10).map(::asEvidence)
+-        val groups=Panel16.groups(evidence,result.hero)
++        val groups=Panel16.groups(evidence,result.hero,result.ownPlayerId)
+         val ownEvidence=groups.first().rows.singleOrNull()
+         for(group in groups){
+             if(group.rows.isEmpty()&&group.expected==null)continue
+@@ -174,13 +193,13 @@
+             playerRows.addView(label(group.label.uppercase(java.util.Locale.ROOT)+" • "+group.rows.size+count+" reconhecidos",11,cyan,true))
+             if(group.rows.isEmpty())playerRows.addView(label("Sem observação suficiente.",10,muted))
+             for(er in group.rows){
+-            val r=result.players.singleOrNull{it.hero==er.hero&&it.team==er.side}?:continue
++            val r=result.players.singleOrNull{if(er.id!=null)it.playerId==er.id else it.hero==er.hero&&it.team==er.side}?:continue
+             playerRows.addView(row().apply{
+                 gravity=Gravity.CENTER_VERTICAL
+                 val iv=ImageView(context).apply{setImageBitmap(r.portrait);scaleType=ImageView.ScaleType.CENTER_CROP}
+                 if(r.portrait!=null)addView(iv,LinearLayout.LayoutParams(dp(28),dp(28)))
+                 addView(column().apply{
+-                    addView(label(r.hero+" • "+r.team,11,if(r.team=="Inimigo")0xFFFF9A9A.toInt() else white,true))
++                    addView(label(r.hero.ifBlank { "Herói desconhecido" }+" • "+r.team,11,if(r.team=="Inimigo")0xFFFF9A9A.toInt() else white,true))
+                     val stats=listOfNotNull(r.gold?.let{"Ouro provável $it"},r.kda?.let{"KDA $it"},r.level?.let{"Nível provável $it"}).joinToString("  |  ")
+                     if(stats.isNotBlank())addView(label(stats,10,muted))
+                     addView(label(Panel16.coverage(er),9,muted))
+@@ -205,7 +224,7 @@
+     private fun refreshAge(result:AnalysisResult) {
+         val age=if(result.observedAt>0) ((SystemClock.elapsedRealtime()-result.observedAt).coerceAtLeast(0)/1000).toString()+"s" else "sem observação"
+         clock.text="Quadros: ${result.frameCount}  •  Última leitura: $age"+
+-            (result.matchTime?.let{"  •  Tempo $it"}?:"")
++            (result.matchTime?.let{"  •  Tempo $it"+if(result.clockEstimated)" (estimado)" else ""}?:"")
+         if(result.observedAt>0 && !Evidence14.fresh(SystemClock.elapsedRealtime(),result.observedAt)){
+             clearResult("Dados antigos • abra o placar")
+         }
+--- a/android-app/app/src/main/java/com/mlbb/assistant/Panel16.kt
++++ b/android-app/app/src/main/java/com/mlbb/assistant/Panel16.kt
+@@ -2,19 +2,23 @@
+ 
+ /** Presentation semantics only; evidence counts are not probabilities of recognition. */
+ object Panel16 {
+- data class Row(val hero:String,val side:String,val items:List<String>,val gold:String?,val kda:String?,val level:Int?)
++ data class Row(val hero:String,val side:String,val items:List<String>,val gold:String?,val kda:String?,val level:Int?,val id:String?=null,val slots:List<SlotObservation> = emptyList())
+  data class Group(val label:String,val expected:Int?,val rows:List<Row>)
+- fun groups(rows:List<Row>,own:String?):List<Group>{
+-  val unique=rows.filter{it.hero.isNotBlank()}.groupBy{it.hero.lowercase(java.util.Locale.ROOT)}.values.mapNotNull{it.singleOrNull()}
+-  val allies=unique.filter{it.side=="Aliado"&&!it.hero.equals(own,true)}
++ fun groups(rows:List<Row>,own:String?,ownId:String?=null):List<Group>{
++  val unique=rows.filter{it.id!=null || it.hero.isNotBlank()}
++      .groupBy{it.id ?: it.hero.lowercase(java.util.Locale.ROOT)}.values.mapNotNull{it.singleOrNull()}
++  fun isOwn(row:Row)=if(ownId!=null)row.id==ownId else row.hero.equals(own,true)
++  val allies=unique.filter{it.side=="Aliado"&&!isOwn(it)}
+   val enemies=unique.filter{it.side=="Inimigo"}
+-  val self=unique.filter{it.side=="Aliado"&&it.hero.equals(own,true)}
++  val self=unique.filter{it.side=="Aliado"&&isOwn(it)}
+   val rest=unique.filter{it.side !in setOf("Aliado","Inimigo")}
+   return listOf(Group("Seu herói",1,self),Group("Aliados",if(self.isNotEmpty())4 else null,allies),Group("Inimigos",5,enemies),Group("Lado incerto",null,rest))
+  }
+  fun coverage(row:Row):String{
+   val info=listOfNotNull(row.gold?.let{"ouro provável "+it},row.kda?.let{"KDA "+it},row.level?.takeIf{it in 1..15}?.let{"nível provável "+it})
+-  return row.items.size.coerceAtMost(6).toString()+"/6 slots com item reconhecido • slots restantes não confirmados"+
++  val empty=row.slots.count{it.state==SlotState.EMPTY_CONFIRMED}
++  val unknown=(6-row.items.size-empty).coerceAtLeast(0)
++  return "${row.items.size}/6 itens • $empty vazios confirmados • $unknown desconhecidos"+
+     (if(info.isEmpty())" • estatísticas não identificadas" else " • "+info.joinToString(" • "))
+  }
+  fun threats(db:GameData13.Snapshot?,row:Row,own:Row?):List<String>{
+--- a/android-app/app/src/main/java/com/mlbb/assistant/Patch15.kt
++++ b/android-app/app/src/main/java/com/mlbb/assistant/Patch15.kt
+@@ -5,19 +5,27 @@
+  const val version="2.2.23"
+  const val date="2026-11-11"
+  const val source="https://mlbbhub.com/patch-notes/original/2.2.23"
++ private const val DETER_REDUCTION_PERCENT = 8
++ private const val CHASTISE_REMAINING_PERCENT = 80
++ fun itemDescription(item: String, text: String): String = when (item) {
++  "Antique Cuirass" -> text.replace("Physical Damage by 6%", "Physical Damage by $DETER_REDUCTION_PERCENT%")
++  "Chastise Pauldron" -> text.replace("to 75% of normal", "to $CHASTISE_REMAINING_PERCENT% of normal")
++  else -> text
++ }
+  val changedHeroes=setOf("Popol and Kupa","Xavier","Lunox","Freya","Aldous","Kaja","Melissa","Gloo","Masha","Atlas","Lukas","Karrie","Kagura","Uranus")
+  val changedItems=setOf("Chastise Pauldron","Antique Cuirass")
+  fun atlasDefense(extraHp:Double):Double?=extraHp.takeIf{it.isFinite()&&it>=0}?.let{20+.007*it}
+  fun concussiveBlast(maxHp:Double,minion:Boolean):Double?=maxHp.takeIf{it.isFinite()&&it>=0}?.let{(100+.08*it)*if(minion).5 else 1.0}
+  fun chastiseSpeed(attackSpeed:Double,cap:Double,active:Boolean):Pair<Double,Double>?{
+   if(listOf(attackSpeed,cap).any{!it.isFinite()||it<0})return null
+-  val c=cap*(if(active).8 else 1.0)
+-  return minOf(c,attackSpeed*(if(active).8 else 1.0)) to c
++  val scale=if(active) CHASTISE_REMAINING_PERCENT / 100.0 else 1.0
++  val c=cap*scale
++  return minOf(c,attackSpeed*scale) to c
+  }
+  // Caller supplies confirmed stack count; only per-stack multiplier checked, stack limit remains external.
+  fun deterPhysical(raw:Double,stacks:Int,maxStacks:Int):Double?{
+   if(!raw.isFinite()||raw<0||maxStacks !in 1..10||stacks !in 0..maxStacks)return null
+-  return raw*(1-.08*stacks).coerceAtLeast(0.0)
++  return raw*(1-DETER_REDUCTION_PERCENT / 100.0*stacks).coerceAtLeast(0.0)
+  }
+  fun isSnapshotCertified(installed:String?)=false // evidence for whole snapshot is absent, even when version matches
+ }
+--- a/android-app/app/src/main/java/com/mlbb/assistant/ProjectionService.kt
++++ b/android-app/app/src/main/java/com/mlbb/assistant/ProjectionService.kt
+@@ -61,12 +61,13 @@
+     private var capture: Handler? = null
+     private var analyzer: OfflineTextAnalyzer? = null
+     private var analyzerRevision = -1L
+-    private var lastCheck = 0L
++    private var nextAnalysisAt = 0L
+     private var lastAnalysisStart = 0L
+     private var lastAnalysisRevision = -1L
+     private var captured = 0L
+     private var processed = 0
+     private var previousTimestamp = Long.MIN_VALUE
++    private var packedBuffer: ByteBuffer? = null
+     private var gamePackage = "com.mobile.legends"
+     private var heroHint = ""
+     private var url = ""
+@@ -141,7 +142,8 @@
+                 if (url.isBlank()) cloud.unavailable("IA sem endpoint HTTPS")
+             }
+             gamePackage = prefs.getString("game_package", "com.mobile.legends").orEmpty()
+-            heroHint = prefs.getString("hero_hint", "").orEmpty()
++            heroHint = prefs.getString("live_hero_hint", "").orEmpty()
++            prefs.edit().remove("live_hero_hint").apply()
+             startedAt = SystemClock.elapsedRealtime()
+             active = true
+             captureThread = HandlerThread("MLBB-local").also { it.start() }
+@@ -227,12 +229,15 @@
+         val generation = revision.get()
+         var bitmap: Bitmap? = null
+         image.use {
+-            if (image.timestamp == previousTimestamp && previousTimestamp != Long.MIN_VALUE && image.timestamp != 0L) return
++            diagnostic.received(++captured, now)
++            if (image.timestamp == previousTimestamp && image.timestamp != 0L) {
++                diagnostic.count("quadros_duplicados")
++                return
++            }
+             previousTimestamp = image.timestamp
+             lastFrame = now
+-            diagnostic.received(++captured, now)
+-            if (paused || !FrameBudget.due(now, lastCheck)) return
+-            lastCheck = now
++            if (paused || now < nextAnalysisAt) return
++            nextAnalysisAt = FrameBudget.nextDue(now, nextAnalysisAt)
+             if (!gameInForeground()) {
+                 ui.post {
+                     if (active && generation == revision.get()) interruptResult("MLBB fora de foco")
+@@ -246,6 +251,8 @@
+             try {
+                 bitmap = decodeFrame(image)
+             } catch (error: Exception) {
++                diagnostic.count("quadros_descartados")
++                diagnostic.count("erros")
+                 diagnostic.state("Erro na conversão RGBA", error.javaClass.simpleName)
+             }
+         }
+@@ -260,7 +267,6 @@
+             val result = local.analyze(frame, heroHint, now)
+             val duration = SystemClock.elapsedRealtime() - now
+             if (duration > FrameBudget.DEADLINE_MS) {
+-                local.reset()
+                 ui.post {
+                     if (active && generation == revision.get()) {
+                         diagnostic.deadlineExceeded(duration)
+@@ -284,9 +290,34 @@
+                     overlay?.showStatus("Quadro excedeu 1 s • aguardando nova leitura")
+                     return@post
+                 }
+-                val completed = result.copy(frameCount = ++processed)
+-                diagnostic.analyzed(completed, finished - now)
++                if (!result.frameValid) {
++                    diagnostic.count("quadros_descartados")
++                    diagnostic.count("erros")
++                    diagnostic.invalidate(result.status, result.localError)
++                    overlay?.clearResult(result.status)
++                    return@post
++                }
++                val completed = result.copy(frameCount = processed + 1)
+                 publishLocal(completed, generation)
++                var recorded = false
++                fun record() {
++                    if (recorded || !active || generation != revision.get()) return
++                    recorded = true
++                    val elapsed = SystemClock.elapsedRealtime() - now
++                    if (elapsed > FrameBudget.DEADLINE_MS) {
++                        diagnostic.deadlineExceeded(elapsed)
++                        overlay?.showStatus("Painel ultrapassou 1 s • aguardando nova leitura")
++                    } else {
++                        processed++
++                        diagnostic.analyzed(completed.copy(frameCount = processed), elapsed, duration)
++                    }
++                }
++                if (overlay?.afterFrameCommit(::record) == true) {
++                    ui.postDelayed({ if (!recorded) record() }, (FrameBudget.DEADLINE_MS - (SystemClock.elapsedRealtime() - now) + 1).coerceAtLeast(1))
++                } else {
++                    diagnostic.count("entrega_visual_sem_medicao")
++                    diagnostic.state("Painel sem medição de entrega")
++                }
+             }
+         } catch (error: Exception) {
+             diagnostic.state("Erro na análise local", error.javaClass.simpleName)
+@@ -354,7 +385,8 @@
+         currentEvidenceAt = 0L
+         latestResult = null
+         cloud.clear()
+-        diagnostic.state(message, error)
++        UploadClient.cancelPending()
++        diagnostic.invalidate(message, error)
+         overlay?.clearResult(message)
+     }
+ 
+@@ -397,7 +429,11 @@
+         val pixels = if (plane.rowStride == rowBytes) {
+             input
+         } else {
+-            val result = ByteBuffer.allocate(rowBytes * image.height)
++            val size = rowBytes * image.height
++            val result = packedBuffer?.takeIf { it.capacity() >= size }
++                ?: ByteBuffer.allocate(size).also { packedBuffer = it }
++            result.clear()
++            result.limit(size)
+             val start = input.position()
+             for (y in 0 until image.height) {
+                 val offset = start + y * plane.rowStride
+@@ -446,6 +482,7 @@
+         active = false
+         revision.incrementAndGet()
+         ui.removeCallbacks(watchdog)
++        UploadClient.cancelPending()
+         cloudWorker.shutdownNow()
+         overlay?.remove()
+         overlay = null
+--- a/android-app/app/src/main/java/com/mlbb/assistant/StrategicEngine.kt
++++ b/android-app/app/src/main/java/com/mlbb/assistant/StrategicEngine.kt
+@@ -15,8 +15,14 @@
+                      val healingHint:Boolean=false,val magicHint:Boolean=false,
+                      val enemyItemsAggregate:List<String> = emptyList(),val lane:String?=null,val rank:String="all")
+     data class Choice(val item:String,val score:Double,val why:List<String>)
++    data class Recommendation(
++        val item: String, val reasons: List<String>, val enemyEvidence: List<String>,
++        val remainingCost: Int?, val buyableNow: Boolean?, val componentNow: String?,
++        val inventoryConfirmed: Boolean
++    )
+     data class Result(val next:String?,val reason:String,val alternatives:List<String>,val plan:List<String>,
+-                      val threat:String,val profile:String,val purchase:String?,val evaluated:Int)
++                      val threat:String,val profile:String,val purchase:String?,val evaluated:Int,
++                      val recommendation: Recommendation? = null, val futureAlternatives: List<String> = emptyList())
+     private val armor=setOf("Antique Cuirass","Blade Armor","Brute Force Breastplate","Dominance Ice","Dreadnaught Armor","Steel Legplates","Leather Jerkin")
+     private val resist=setOf("Athena's Shield","Radiant Armor","Oracle","Magic Resist Cloak","Silence Robe")
+     private val hp=setOf("Guardian Helmet","Cursed Helmet","Ares Belt","Vitality Crystal")
+--- a/android-app/app/src/main/java/com/mlbb/assistant/Strategy13.kt
++++ b/android-app/app/src/main/java/com/mlbb/assistant/Strategy13.kt
+@@ -190,11 +190,16 @@
+    val detail=replacements?.let{"Avaliar troca: "+it.first+" → "+it.second.name+"; "+it.second.why.joinToString("; ")+"; custo de revenda não confirmado."}?:"Inventário cheio/incerto: não indicar venda sem evidência."
+    return StrategicEngine.Result(null,detail,emptyList(),full.take(6),threatText,"Banco comunitário "+db.date,detail,0)
+   }
++  val firstQuotes = mutableMapOf<String, Recipe131.Quote?>()
++  fun canStart(name: String): Boolean {
++   if (owned.size < 6 && s.owned.size < 6) return true
++   return !unknown && firstQuotes.getOrPut(name) { Recipe131.quote(db,name,owned,null) }?.consumed?.let { it > 0 } == true
++  }
+   data class Path(val items:List<String>,val score:Double)
+   var beam=listOf(Path(emptyList(),0.0));var evaluated=0
+   for(depth in 0 until (6-full.size).coerceAtLeast(0)){
+    val next=beam.flatMap{path->candidates.filter{valid(it.name,full+path.items)&&
+-    (depth!=0||owned.size<6||(!unknown&&Recipe131.quote(db,it.name,owned,null)?.consumed?.let{n->n>0}==true))}.map{c->
++    (depth!=0||canStart(it.name))}.map{c->
+     evaluated++
+     val combo=if(c.name in setOf("Golden Staff","Demon Hunter Sword","Corrosion Scythe")&&(full+path.items).any{it in setOf("Golden Staff","Demon Hunter Sword","Corrosion Scythe")}&&"basic attack" in skillTags)6.0 else 0.0
+     Path(path.items+c.name,path.score+(c.score+combo)/(1+depth*.28))
+@@ -208,11 +213,19 @@
+       else emptyMap()
+   val path=beam.maxWithOrNull(compareBy<Path>{it.score+(evaluatedBuilds[full+it.items]?.score?.coerceIn(-10.0,20.0)?:0.0)}.thenByDescending{it.items.joinToString("|")})!!.items
+   val next=path.firstOrNull();val choice=candidates.firstOrNull{it.name==next}
+-  val purchase=next?.let{buy(db,it,owned,s.budget,s.inventoryKnown&&!unknown,s.prices.entries.firstOrNull{e->db.canonicalItem(e.key)==it}?.value).detail}
+-     ?:if(owned.size>=6)"Sem compra segura: inventário cheio; confirme componentes ou libere espaço." else null
++  val decision=next?.let{buy(db,it,owned,s.budget,s.inventoryKnown&&!unknown,s.prices.entries.firstOrNull{e->db.canonicalItem(e.key)==it}?.value)}
++  val purchase=decision?.detail
++     ?:if(s.owned.size>=6)"Sem compra segura: inventário cheio; confirme componentes ou libere espaço." else null
+   val reason=(choice?.why?.joinToString("; ")?: "Sem compra válida")+
+    (if(!s.inventoryKnown||unknown)". Inventário parcial: sugestão provisória" else "")+". Dados comunitários "+db.date+"; não certificados pelo patch."
+-  return StrategicEngine.Result(next,reason,candidates.filter{valid(it.name,full)&&it.name!=next}.take(3).map{it.name},(full+path).take(6),threatText,
+-    if(seeds.isEmpty())"Perfil factual + regras, sem build observada" else "Perfil factual + "+seeds.size+" builds de referência; "+seeds.first().rank+"/"+seeds.first().lane,purchase,evaluated)
++  val alternatives = candidates.filter { valid(it.name, full) && it.name != next }.partition { canStart(it.name) }
++  val explanation = if (choice == null) null else StrategicEngine.Recommendation(
++      item = choice.name, reasons = choice.why, enemyEvidence = foes.map { it.first.name },
++      remainingCost = decision?.remaining, buyableNow = decision?.remaining?.let { cost ->
++          s.budget?.let { it >= cost && canStart(choice.name) }
++      }, componentNow = decision?.component, inventoryConfirmed = s.inventoryKnown && !unknown)
++  return StrategicEngine.Result(next,reason,alternatives.first.take(3).map{it.name},(full+path).take(6),threatText,
++    if(seeds.isEmpty())"Perfil factual + regras, sem build observada" else "Perfil factual + "+seeds.size+" builds de referência; "+seeds.first().rank+"/"+seeds.first().lane,purchase,evaluated,
++    explanation, alternatives.second.take(3).map { it.name })
+  }
+ }
+--- a/android-app/app/src/main/java/com/mlbb/assistant/UploadClient.kt
++++ b/android-app/app/src/main/java/com/mlbb/assistant/UploadClient.kt
+@@ -4,6 +4,7 @@
+ import java.net.HttpURLConnection
+ import java.net.URL
+ import java.nio.charset.StandardCharsets
++import java.util.concurrent.atomic.AtomicReference
+ import org.json.JSONArray
+ 
+ data class ObservedPlayer(
+@@ -13,7 +14,10 @@
+     val itemImages:Map<String,android.graphics.Bitmap> = emptyMap(),val level:Int?=null,
+     val visualSlots: List<Evidence14.Slot> = emptyList(),
+     val heroDistance: Double? = null, val heroMargin: Double? = null,
+-    val side: Int? = null, val row: Int? = null
++    val side: Int? = null, val row: Int? = null,
++    val playerId: String? = null, val slots: List<SlotObservation> = emptyList(),
++    val rowSeenAt: Long = 0, val heroConfirmedAt: Long? = null, val heroSeenAt: Long? = null,
++    val goldSeenAt: Long? = null, val kdaSeenAt: Long? = null, val levelSeenAt: Long? = null
+ )
+ 
+ data class AnalysisResult(
+@@ -39,30 +43,46 @@
+     val ocrSummary: String = "",
+     val localError: String? = null,
+     val cloudStatus: String = "",
+-    val supplement: CloudSupplement? = null
++    val supplement: CloudSupplement? = null,
++    val matchId: String? = null, val stateVersion: Long = 0, val ownPlayerId: String? = null,
++    val clockEstimated: Boolean = false, val inventoryComplete: Boolean = false,
++    val frameValid: Boolean = true, val recommendation: StrategicEngine.Recommendation? = null,
++    val futureAlternatives: List<String> = emptyList()
+ )
+ 
+ internal class CloudHttpError(val code: Int) : Exception()
+ 
+ /** Sends only structured observations, using the user's configured HTTPS server. */
+ object UploadClient {
++    private val currentRequest = AtomicReference<HttpURLConnection?>()
++
++    fun cancelPending() {
++        currentRequest.getAndSet(null)?.disconnect()
++    }
++
+     internal fun supplement(baseUrl: String, token: String, evidence: CloudEvidence): CloudSupplement? {
+         require(baseUrl.startsWith("https://"))
+         val players = JSONArray()
+         for (player in evidence.players) {
+             players.put(JSONObject().put("hero", player.hero).put("team", player.team)
+                 .put("items", JSONArray(player.items)).put("gold", player.gold ?: JSONObject.NULL)
+-                .put("level", player.level ?: JSONObject.NULL))
++                .put("level", player.level ?: JSONObject.NULL)
++                .put("player_id", player.id ?: JSONObject.NULL).put("slot_states", JSONArray(player.slots)))
+         }
+         val body = JSONObject().put("hero", evidence.hero).put("players", players)
+             .put("candidates", JSONArray(evidence.candidates)).put("minute", evidence.minute ?: JSONObject.NULL)
++            .put("contract_version", 1).put("match_id", evidence.matchId ?: JSONObject.NULL)
++            .put("state_version", evidence.stateVersion).put("age_ms", evidence.ageMs)
++            .put("own_player_id", evidence.ownPlayerId ?: JSONObject.NULL)
++            .put("inventory_complete", evidence.inventoryComplete)
+             .toString().toByteArray(StandardCharsets.UTF_8)
+         val conn = URL(baseUrl.trimEnd('/') + "/strategy").openConnection() as HttpURLConnection
++        check(currentRequest.compareAndSet(null, conn))
+         try {
+             conn.instanceFollowRedirects = false
+             conn.requestMethod = "POST"
+             conn.connectTimeout = 5_000
+-            conn.readTimeout = 18_000
++            conn.readTimeout = 16_000
+             conn.doOutput = true
+             conn.setRequestProperty("Content-Type", "application/json")
+             conn.setRequestProperty("Accept", "application/json")
+@@ -77,16 +97,51 @@
+                 require(size < buffer.size)
+                 JSONObject(String(buffer, 0, size))
+             }
+-            if (payload.isNull("advice")) return null
++            require(payload.getInt("contract_version") == 1 && payload.getLong("state_version") == evidence.stateVersion)
++            require(payload.optString("match_id").takeIf { !payload.isNull("match_id") } == evidence.matchId)
+             val item = payload.optString("item").takeIf { !payload.isNull("item") }
+-            val advice = payload.getString("advice").trim()
+-            val heroes = payload.getJSONArray("evidence_heroes")
+-            require(heroes.length() in 1..5)
+-            val cited = (0 until heroes.length()).map(heroes::getString)
+-            require(advice.length in 12..400 && (item == null || item in evidence.candidates))
+-            require(cited.all { hero -> evidence.players.any { it.hero == hero } })
+-            return CloudSupplement(item, advice, cited)
++            require(item == null || item in evidence.candidates)
++            val facts = payload.getJSONArray("facts")
++            require(facts.length() in 0..3)
++            if (facts.length() == 0) {
++                require(item == null)
++                return null
++            }
++            val seen = mutableSetOf<String>()
++            val cited = mutableSetOf<String>()
++            val advice = (0 until facts.length()).map { index ->
++                val fact = facts.getJSONObject(index)
++                val key = fact.getString("evidence_id")
++                require(seen.add(key))
++                val hero = fact.getString("hero")
++                val playerIndex = key.substringBefore(':').removePrefix("p").toIntOrNull()
++                val player = playerIndex?.let(evidence.players::getOrNull)
++                require(player != null && player.hero == hero && player.team == "enemy")
++                cited.add(hero)
++                when (fact.getString("kind")) {
++                    "item_observed" -> {
++                        val value = fact.getString("value")
++                        val slot = key.substringAfterLast(':').toIntOrNull()
++                        require(slot != null && player.items.getOrNull(slot) == value)
++                        "$hero tem $value no placar."
++                    }
++                    "gold_observed" -> {
++                        val value = fact.getInt("value")
++                        require(player.gold == value)
++                        "$hero aparece com $value de ouro total."
++                    }
++                    "level_observed" -> {
++                        val value = fact.getInt("value")
++                        require(player.level == value)
++                        "$hero aparece no nível $value."
++                    }
++                    "enemy_present" -> "$hero aparece do lado inimigo."
++                    else -> error("Tipo de fato indisponível")
++                }
++            }.joinToString(" ")
++            return CloudSupplement(item, advice, cited.toList())
+         } finally {
++            currentRequest.compareAndSet(conn, null)
+             conn.disconnect()
+         }
+     }
