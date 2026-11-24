@@ -31,6 +31,15 @@ class Audit131Test {
   assertNull(r.next)
   assertEquals(6,r.plan.size)
  }
+ @Test fun noImpossibleFirstPurchase(){
+  val d=db()
+  // All slots are occupied with special items which are not components in any purchase recipe.
+  val stock=List(6){"Lantern of Hope"}
+  assertTrue(stock.all{it in d.items})
+  val r=Strategy13.recommend(StrategicEngine.State("Hanzo",stock,inventoryKnown=true,budget=99999))
+  assertNull(r.next)
+  assertTrue(r.purchase!!.contains("inventário cheio"))
+ }
  @Test fun matchupsSymmetry(){
   val d=db()
   for(rank in listOf("all","epic","legend","mythic","honor","glory"))for(a in d.heroes.keys)for(b in d.heroes.keys)if(a!=b){

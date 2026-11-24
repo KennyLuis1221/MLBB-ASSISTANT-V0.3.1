@@ -126,3 +126,20 @@ rep(p,'result.addView(label(advice.reason,12,white))','result.addView(label(advi
 rep(p,'private fun startCapture(useCloud:Boolean) {','''private fun startCapture(useCloud:Boolean) {
         if(!useCloud&&GameData13.current==null){toast("Banco offline inválido. Reinstale o APK.");return}''')
 g=Path("android-app/app/build.gradle.kts");s=g.read_text().replace("versionCode = 14","versionCode = 15").replace('versionName = "0.13.0"','versionName = "0.13.1"');g.write_text(s)
+
+# Stop expansion when no valid first purchase exists; do not bypass slot checks at depth 1.
+rep("Strategy13.kt",'repeat((6-full.size).coerceAtLeast(0)){\n   val depth=it','for(depth in 0 until (6-full.size).coerceAtLeast(0)){')
+rep("Strategy13.kt",'if(next.isNotEmpty())beam=next.sortedWith(compareByDescending<Path>{it.score}.thenBy{it.items.joinToString("|")}).take(24)','if(next.isEmpty())break\n   beam=next.sortedWith(compareByDescending<Path>{it.score}.thenBy{it.items.joinToString("|")}).take(24)')
+# Do not hard-block a damage-type item if that exact hero has reference usage.
+rep("Strategy13.kt",'if((pureMagic&&i.category=="Attack"&&"Physical Attack" in i.bonus&&"Adaptive" !in i.bonus)||(purePhysical&&!support&&i.category=="Magic"&&"Magic Power" in i.bonus))return@mapNotNull null','''val observed=seeds.any{i.name in it.items}
+   if(!observed&&((pureMagic&&i.category=="Attack"&&"Physical Attack" in i.bonus&&"Adaptive" !in i.bonus)||(purePhysical&&!support&&i.category=="Magic"&&"Magic Power" in i.bonus)))return@mapNotNull null''')
+# Ensure a candidate must come from actual scoring evidence, not arbitrary ordering alone.
+rep("Strategy13.kt",'if(i.category=="Defense"&&tankRole)bonus(8.0,"função de linha de frente")','''if(i.category=="Defense"&&tankRole)bonus(8.0,"função de linha de frente")
+   if(i.category=="Attack"&&purePhysical&&"Physical Attack" in i.bonus)bonus(4.0,"atributo de ataque físico")
+   if(i.category=="Magic"&&pureMagic&&"Magic Power" in i.bonus)bonus(4.0,"atributo de poder mágico")
+   if("Spell Vamp" in i.bonus&&("Regen" in h.traits||"Fighter" in h.roles))bonus(3.0,"sustentação possível")
+   if("Lifesteal" in i.bonus&&"Marksman" in h.roles)bonus(3.0,"sustentação de ataques")
+   if(s.inventoryKnown&&s.budget!=null&&s.budget>=0&&owned.size<=6&&i.name !in full){
+     val cost=Recipe131.quote(db,i.name,owned,null)?.cost
+     if(cost!=null&&cost<=s.budget)bonus(4.0,"custo estimado cabe no saldo informado")
+   }''')
