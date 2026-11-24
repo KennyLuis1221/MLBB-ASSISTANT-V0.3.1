@@ -505,7 +505,7 @@
          persist(true)
      }
  
-@@ -44,10 +48,25 @@
+@@ -44,10 +48,24 @@
      }
  
      @Synchronized
@@ -518,7 +518,6 @@
 +
 +    @Synchronized
 +    fun analyzed(result: AnalysisResult, duration: Long, processing: Long) {
-+        count("quadros_validos")
 +        if (result.currentBoard) {
 +            val complete = result.hero != null && result.players.count { it.hero.isNotBlank() } == 10 &&
 +                result.players.all { row -> row.slots.size == 6 && row.slots.all {
@@ -534,7 +533,7 @@
              .put("estado", result.status)
              .put("ocr", result.ocrSummary)
              .put("base", result.item ?: "Aguardando dados")
-@@ -57,10 +76,13 @@
+@@ -57,10 +75,13 @@
              .put("latencia_maxima_ms", maxOf(fields.optLong("latencia_maxima_ms"), duration))
              .put("placar_atual", result.currentBoard)
              .put("justificativa_base", result.reason)
@@ -549,7 +548,7 @@
          persist(true)
      }
  
-@@ -76,6 +98,7 @@
+@@ -76,6 +97,7 @@
  
      @Synchronized
      fun deadlineExceeded(duration: Long) {
@@ -557,7 +556,7 @@
          fields.put("quadros_fora_do_prazo", fields.optInt("quadros_fora_do_prazo") + 1)
              .put("ultima_latencia_fora_do_prazo_ms", duration)
              .put("ultimo_erro", "Quadro excedeu o prazo de 1 s")
-@@ -90,6 +113,16 @@
+@@ -90,6 +112,16 @@
      }
  
      @Synchronized
@@ -574,7 +573,7 @@
      fun error(message: String) {
          fields.put("ultimo_erro", message)
          persist(true)
-@@ -98,13 +131,13 @@
+@@ -98,13 +130,13 @@
      @Synchronized
      fun cloud(status: String) {
          if (fields.optString("ia") == status) return
@@ -590,7 +589,7 @@
          if (fields.optString("captura").startsWith("Captura ativa") || fields.optString("captura").isBlank())
              fields.put("captura", "Encerrada")
          persist(true)
-@@ -115,14 +148,25 @@
+@@ -115,14 +147,25 @@
              val rows = JSONArray()
              for (player in result.players) {
                  val slots = JSONArray()
@@ -1492,15 +1491,19 @@
                  diagnostic.state("Erro na conversão RGBA", error.javaClass.simpleName)
              }
          }
-@@ -260,7 +267,6 @@
+@@ -259,8 +266,10 @@
+             }
              val result = local.analyze(frame, heroHint, now)
              val duration = SystemClock.elapsedRealtime() - now
++            if (result.frameValid && active && generation == revision.get()) {
++                diagnostic.count("quadros_validos")
++            }
              if (duration > FrameBudget.DEADLINE_MS) {
 -                local.reset()
                  ui.post {
                      if (active && generation == revision.get()) {
                          diagnostic.deadlineExceeded(duration)
-@@ -284,9 +290,34 @@
+@@ -284,9 +293,33 @@
                      overlay?.showStatus("Quadro excedeu 1 s • aguardando nova leitura")
                      return@post
                  }
@@ -1509,8 +1512,7 @@
 +                if (!result.frameValid) {
 +                    diagnostic.count("quadros_descartados")
 +                    diagnostic.count("erros")
-+                    diagnostic.invalidate(result.status, result.localError)
-+                    overlay?.clearResult(result.status)
++                    interruptResult(result.status, result.localError)
 +                    return@post
 +                }
 +                val completed = result.copy(frameCount = processed + 1)
@@ -1537,7 +1539,7 @@
              }
          } catch (error: Exception) {
              diagnostic.state("Erro na análise local", error.javaClass.simpleName)
-@@ -354,7 +385,8 @@
+@@ -354,7 +387,8 @@
          currentEvidenceAt = 0L
          latestResult = null
          cloud.clear()
@@ -1547,7 +1549,7 @@
          overlay?.clearResult(message)
      }
  
-@@ -397,7 +429,11 @@
+@@ -397,7 +431,11 @@
          val pixels = if (plane.rowStride == rowBytes) {
              input
          } else {
@@ -1560,7 +1562,7 @@
              val start = input.position()
              for (y in 0 until image.height) {
                  val offset = start + y * plane.rowStride
-@@ -446,6 +482,7 @@
+@@ -446,6 +484,7 @@
          active = false
          revision.incrementAndGet()
          ui.removeCallbacks(watchdog)
