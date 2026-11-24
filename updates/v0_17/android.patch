@@ -1,0 +1,1805 @@
+--- a/android-app/app/build.gradle.kts
++++ b/android-app/app/build.gradle.kts
+@@ -6,6 +6,7 @@
+ android {
+     namespace = "com.mlbb.assistant"
+     compileSdk = 35
++    buildToolsVersion = "35.0.0"
+ 
+     buildFeatures {
+         buildConfig = true  // Necessário para BuildConfig.DEBUG no Android Gradle Plugin 8+
+@@ -15,16 +16,30 @@
+         applicationId = "com.mlbb.assistant"
+         minSdk = 29
+         targetSdk = 35
+-        versionCode = 17
+-        versionName = "0.16-dev-test"
++        versionCode = 18
++        versionName = "0.17.0"
+         buildConfigField("String", "DEFAULT_API_URL", "\"https://mlbb-assistant-vision.onrender.com\"")
+         manifestPlaceholders["cleartextTraffic"] = "false"
++    }
++
++    flavorDimensions += "edition"
++    productFlavors {
++        create("base") {
++            dimension = "edition"
++            buildConfigField("boolean", "CLOUD_AVAILABLE", "false")
++            manifestPlaceholders["appEdition"] = "MLBB Assistant Base"
++        }
++        create("ia") {
++            dimension = "edition"
++            applicationIdSuffix = ".ia"
++            buildConfigField("boolean", "CLOUD_AVAILABLE", "true")
++            manifestPlaceholders["appEdition"] = "MLBB Assistant IA"
++        }
+     }
+ 
+     buildTypes {
+         getByName("debug") {
+             applicationIdSuffix = ".debug"
+-            manifestPlaceholders["cleartextTraffic"] = "true" // Somente debug: servidor HTTP na rede local
+         }
+         getByName("release") {
+             isMinifyEnabled = false
+--- a/android-app/app/src/main/AndroidManifest.xml
++++ b/android-app/app/src/main/AndroidManifest.xml
+@@ -12,7 +12,7 @@
+     <queries><package android:name="com.mobile.legends" /></queries>
+     <application
+         android:allowBackup="false"
+-        android:label="MLBB ASSISTANT"
++        android:label="${appEdition}"
+         android:icon="@drawable/ic_assistant"
+         android:theme="@style/Theme.MLBBAssistant"
+         android:usesCleartextTraffic="${cleartextTraffic}"
+--- a/android-app/app/src/main/java/com/mlbb/assistant/CloudSession.kt
++++ b/android-app/app/src/main/java/com/mlbb/assistant/CloudSession.kt
+@@ -1,32 +1,54 @@
+ package com.mlbb.assistant
+ 
+-import android.os.SystemClock
+ import org.json.JSONObject
++import java.net.HttpURLConnection
+ import java.net.URL
+-import java.net.HttpURLConnection
+ 
+-/** Only an operator-configured HTTPS endpoint. No cloud API keys in APK. */
++internal class CloudConfigurationError(val detail: String) : Exception()
++
++/** Obtains only a short-lived application token. Provider credentials stay on the server. */
+ object CloudSession {
+-    private var retryAt=0L
+-    @Synchronized fun connect(base:String):String {
+-        require(base.startsWith("https://")){"HTTPS obrigatório"}
+-        if(SystemClock.elapsedRealtime()<retryAt)throw IllegalStateException("Aguardando reconexão")
+-        retryAt=SystemClock.elapsedRealtime()+60_000
+-        val health=call(base.trimEnd('/')+"/health","GET")
+-        if(health.optString("vision")!="online")throw IllegalStateException("Visão online indisponível")
+-        val token=call(base.trimEnd('/')+"/session","POST").optString("token")
+-        require(token.isNotBlank()){"Sessão não provisionada"}
+-        retryAt=0
+-        return token
++    internal fun connect(base: String): String {
++        require(base.startsWith("https://"))
++        val url = base.trimEnd('/')
++        val health = call("$url/health", "GET")
++        when (health.optString("strategy")) {
++            "available" -> Unit
++            "disabled" -> throw CloudConfigurationError("Provedor IA desativado")
++            else -> throw CloudConfigurationError("Servidor ainda sem estratégia estruturada")
++        }
++        return call("$url/session", "POST").optString("token").takeIf { it.isNotBlank() }
++            ?: throw CloudConfigurationError("Sessão IA indisponível")
+     }
+-    private fun call(url:String,method:String):JSONObject{
+-        val c=URL(url).openConnection() as HttpURLConnection
+-        try{
+-            c.instanceFollowRedirects=false;c.requestMethod=method;c.connectTimeout=6000;c.readTimeout=6000
+-            c.setRequestProperty("Accept","application/json")
+-            if(method=="POST"){c.doOutput=true;c.setFixedLengthStreamingMode(0);c.outputStream.close()}
+-            if(c.responseCode !in 200..299)throw IllegalStateException("Conexão HTTP "+c.responseCode)
+-            return JSONObject(c.inputStream.bufferedReader().use{it.readText()})
+-        }finally{c.disconnect()}
++
++    private fun call(url: String, method: String): JSONObject {
++        val connection = URL(url).openConnection() as HttpURLConnection
++        try {
++            connection.instanceFollowRedirects = false
++            connection.requestMethod = method
++            connection.connectTimeout = 5_000
++            connection.readTimeout = 5_000
++            connection.setRequestProperty("Accept", "application/json")
++            if (method == "POST") {
++                connection.doOutput = true
++                connection.setFixedLengthStreamingMode(0)
++                connection.outputStream.close()
++            }
++            val code = connection.responseCode
++            if (code !in 200..299) throw CloudHttpError(code)
++            val buffer = CharArray(4_097)
++            return connection.inputStream.bufferedReader().use { reader ->
++                var size = 0
++                while (size < buffer.size) {
++                    val count = reader.read(buffer, size, buffer.size - size)
++                    if (count < 0) break
++                    size += count
++                }
++                require(size < buffer.size)
++                JSONObject(String(buffer, 0, size))
++            }
++        } finally {
++            connection.disconnect()
++        }
+     }
+ }
+--- a/android-app/app/src/main/java/com/mlbb/assistant/DetailedMatcher.kt
++++ b/android-app/app/src/main/java/com/mlbb/assistant/DetailedMatcher.kt
+@@ -14,9 +14,7 @@
+     private data class Ref(val name: String, val type: Char, val bytes: ByteArray)
+     private val refs = mutableListOf<Ref>()
+     private val calibration=BoardCalibration.decode(context.getSharedPreferences("settings",Context.MODE_PRIVATE).getString("board_calibration",null))
+-    val calibrated get()=calibration!=null
+-    init {
+-        runCatching {
++    val referenceError: String? = runCatching {
+             val lines = context.assets.open("references_v7.txt").bufferedReader().use { it.readLines() }
+             for (n in listOf(0,2)) {
+                 val names=lines[n].split('|')
+@@ -25,8 +23,7 @@
+                 names.forEachIndexed { j,name -> refs.add(Ref(name, if(n==0) 'h' else 'i',
+                     bytes.copyOfRange(j*20,j*20+20))) }
+             }
+-        }
+-    }
++        }.exceptionOrNull()?.let { error -> refs.clear(); "Referências indisponíveis: ${error.javaClass.simpleName}" }
+     val count get() = refs.size
+     private fun luminance(c:Int)=.299*Color.red(c)+.587*Color.green(c)+.114*Color.blue(c)
+     private fun feature(b: Bitmap, x:Int,y:Int,s:Int): ByteArray? {
+@@ -71,12 +68,13 @@
+         return Hit(best.name,score,x,y,size,second-score)
+     }
+     data class Row(val side:Int,val index:Int,val hero:Hit?,val items:List<Hit>,val centerY:Int)
+-    data class Board(val rows:List<Row>,val support:Int)
++    data class Board(val rows:List<Row>,val support:Int,val layout:String="sem geometria confirmada")
+     private data class Grid(val start:Double,val step:Double,val left:Double,val right:Double,
+         val leftItems:Double,val rightItems:Double,val itemStep:Double,val dy:Double,val heroSize:Double,val itemSize:Double)
+-    fun board(b:Bitmap):Board {
++    fun board(b:Bitmap, hasScoreboardText:Boolean):Board {
+         val w=b.width;val h=b.height
+         val custom=calibration?.takeIf{it.compatible(w,h)}
++        var calibratedSupport = 0
+         if(custom!=null){
+             val rows=mutableListOf<Row>()
+             for(side in 0..1)for(row in 0..4){
+@@ -91,10 +89,12 @@
+             val duplicates=rows.mapNotNull{it.hero?.name}.groupingBy{it}.eachCount().filterValues{it>1}.keys
+             val unique=rows.filter{it.hero?.name !in duplicates}
+             val n=unique.count{it.hero!=null}
+-            return if(n>=4&&unique.count{it.side==0&&it.hero!=null}>=2&&unique.count{it.side==1&&it.hero!=null}>=2)Board(unique,n)else Board(emptyList(),n)
++            calibratedSupport = n
++            val bothSides = (0..1).all { side -> unique.any { it.side == side && it.hero != null } }
++            if (n >= 2 && (bothSides || hasScoreboardText)) return Board(unique, n, "layout calibrado")
+         }
+         // Multiple hypotheses: full-width scoreboard, inset board and alternate row positions.
+-        // No hypothesis is trusted without at least three distinct portrait candidates.
++        // Uncalibrated layouts require evidence on both sides.
+         val grids=listOf(
+             Grid(.265,.128,.165,.835,.208,.643,.030,.026,.044,.027),
+             Grid(.35,.087,.135,.87,.18,.66,.028,.027,.045,.028),
+@@ -110,15 +110,15 @@
+                 val hit=match(b,x,y,size,'h')
+                 rows.add(Row(side,k,hit,emptyList(),y))
+             }
+-            val n=rows.mapNotNull{it.hero?.name}.distinct().size
+-            if(n>best){chosen=g;selected=rows;best=n}
++            val duplicates=rows.mapNotNull{it.hero?.name}.groupingBy{it}.eachCount().filterValues{it>1}.keys
++            val unique=rows.filter{it.hero?.name !in duplicates}
++            val n=unique.count{it.hero!=null}
++            val supported=(0..1).all{side->unique.count{it.side==side&&it.hero!=null}>=2}
++            if(supported&&n>best){chosen=g;selected=unique;best=n}
++            calibratedSupport=max(calibratedSupport,n)
+         }
+-        val g=chosen?:return Board(emptyList(),0)
+-        val duplicates=selected.mapNotNull{it.hero?.name}.groupingBy{it}.eachCount().filterValues{it>1}.keys
+-        selected=selected.filter{it.hero?.name !in duplicates}
+-        best=selected.count{it.hero!=null}
+-        if(best<4||selected.count{it.side==0&&it.hero!=null}<2||selected.count{it.side==1&&it.hero!=null}<2)
+-            return Board(emptyList(),best)
++        val g=chosen ?: return Board(emptyList(), calibratedSupport,
++            if (calibration != null && custom == null) "calibração incompatível com a proporção" else "sem geometria confirmada")
+         val final=selected.map { row ->
+             if(row.hero==null) row else {
+                 val start=if(row.side==0)g.leftItems else g.rightItems
+@@ -129,7 +129,7 @@
+                 row.copy(items=items)
+             }
+         }
+-        return Board(final,best)
++        return Board(final,best,"layout estimado")
+     }
+     fun thumbnail(b:Bitmap,hit:Hit):Bitmap? {
+         val s=hit.size; val x=hit.x-s/2;val y=hit.y-s/2
+--- a/android-app/app/src/main/java/com/mlbb/assistant/GameData13.kt
++++ b/android-app/app/src/main/java/com/mlbb/assistant/GameData13.kt
+@@ -34,7 +34,8 @@
+     "athena's shield"->"Valkyrie's Shield";"magic boots"->"Magic Shoes";"demon boots"->"Demon Shoes";"haas's claws"->"Haas' Claws";else->x
+   }
+  }
+- @Synchronized fun install(input:InputStream):Snapshot {
++ @Synchronized fun install(input:InputStream):Snapshot = parse(input).also { current = it }
++ internal fun parse(input:InputStream):Snapshot {
+   val h=linkedMapOf<String,Hero>();val sk=linkedMapOf<String,MutableList<Skill>>();val it=linkedMapOf<String,Item>();val bs=linkedMapOf<String,MutableList<Build>>()
+   val c=linkedMapOf<Triple<String,String,String>,Double>();val y=linkedMapOf<Triple<String,String,String>,Double>();var date="";val combos=linkedMapOf<String,MutableList<ComboRef>>()
+   fun list(s:String)=s.split("|").filter{it.isNotBlank()}
+@@ -56,6 +57,6 @@
+   require(sk.values.flatten().all{it.description.isNotBlank()})
+   require(it.values.all{i->i.recipe.all{part->it.containsKey(part)}})
+   require(combos.keys==h.keys&&combos.values.sumOf{it.size}==266)
+-  val result=Snapshot(date,h,sk,it,bs,c,y,combos);current=result;return result
++  return Snapshot(date,h,sk,it,bs,c,y,combos)
+  }
+ }
+--- a/android-app/app/src/main/java/com/mlbb/assistant/MainActivity.kt
++++ b/android-app/app/src/main/java/com/mlbb/assistant/MainActivity.kt
+@@ -41,6 +41,7 @@
+     private var cloudConsent: CheckBox? = null
+     private var sessionCloudAllowed=false
+     private var page = "home"
++    private var replayExport: String? = null
+     private val navy = 0xFF091525.toInt()
+     private val slate = 0xFF13263B.toInt()
+     private val white = 0xFFF3F7FA.toInt()
+@@ -50,7 +51,7 @@
+ 
+     override fun onCreate(savedInstanceState: Bundle?) {
+         super.onCreate(savedInstanceState)
+-        runCatching { assets.open("strategy13.tsv").use { GameData13.install(it) } }
++        CatalogStorage.load(this)
+         window.statusBarColor = navy
+         window.navigationBarColor = navy
+         showHome()
+@@ -74,6 +75,14 @@
+             isFillViewport = true
+             setBackgroundColor(navy)
+             addView(content)
++            if (Build.VERSION.SDK_INT >= 30) {
++                setOnApplyWindowInsetsListener { view, insets ->
++                    val bars = insets.getInsets(android.view.WindowInsets.Type.systemBars() or
++                        android.view.WindowInsets.Type.displayCutout())
++                    view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
++                    insets
++                }
++            }
+         })
+         return content
+     }
+@@ -108,14 +117,16 @@
+             isChecked = false
+         }
+         ui.addView(consentBox)
+-        cloudConsent=CheckBox(this).apply {
+-            text="Permito enviar quadros ao Render e Gemini. O plano gratuito pode usar dados para melhorar produtos. Não envie dados pessoais. Opcional."
+-            setTextColor(white);textSize=12f;isChecked=false
+-        }
+-        ui.addView(cloudConsent)
+-        ui.addView(button("▶  INICIAR COM I.A.", true) { startCapture(true) })
+-        ui.addView(label("Visão online opcional • Gemini gratuito • sujeito à cota",12,muted))
+-        ui.addView(space(9))
++        if (BuildConfig.CLOUD_AVAILABLE) {
++            cloudConsent = CheckBox(this).apply {
++                text = "Permito enviar observações do placar e candidatos de build ao servidor e ao Gemini."
++                setTextColor(white)
++                textSize = 12f
++            }
++            ui.addView(cloudConsent)
++            ui.addView(button("▶  INICIAR COM IA", true) { startCapture(true) })
++            ui.addView(space(9))
++        }
+         ui.addView(button("▶  INICIAR COM APP BASE", true) { startCapture(false) })
+         ui.addView(label("Motor estratégico local • nenhuma imagem enviada • sem cota de API",12,muted))
+         ui.addView(space(11))
+@@ -128,16 +139,16 @@
+         ui.addView(space(15))
+ 
+ 
+-        ui.addView(label("Último diagnóstico: "+prefs.getString("last_diagnostic","Nenhuma sessão iniciada"),12,muted))
++        ui.addView(button("DIAGNÓSTICO DA CAPTURA") { showDiagnostics() })
+         ui.addView(space(18))
+         ui.addView(button("■  Encerrar assistência") {
+-            startService(Intent(this, ProjectionService::class.java).setAction(ProjectionService.ACTION_STOP))
+-            toast("Encerramento solicitado")
++            stopService(Intent(this, ProjectionService::class.java))
+         })
+         ui.addView(space(12))
+         ui.addView(button("TESTAR RECONHECIMENTO COM PRINT") {
+             val pick=Intent(Intent.ACTION_OPEN_DOCUMENT).apply{
+                 addCategory(Intent.CATEGORY_OPENABLE);type="image/*"
++                putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+             }
+             startActivityForResult(pick,7302)
+         })
+@@ -154,7 +165,7 @@
+         })
+         ui.addView(button("Configurações avançadas  ⚙") { showAdvanced() })
+         ui.addView(space(14))
+-        ui.addView(label("V0.13 experimental • motor local, banco de dados comunitário e calibração de placar. Leitura real ainda exige validação.", 11, muted))
++        ui.addView(label("Versão ${BuildConfig.VERSION_NAME} • catálogo ${GameData13.current?.date ?: "indisponível"}", 11, muted))
+     }
+ 
+     private fun showDraft() {
+@@ -566,48 +577,47 @@
+             })
+         }
+         ui.addView(space(15))
+-        ui.addView(label("A captura de tela só começa com sua autorização. Quando a análise online estiver conectada, capturas poderão ser enviadas ao servidor e ao provedor de IA. Não abra informações pessoais enquanto estiver capturando.", 13, muted))
++        ui.addView(label("A captura de tela só começa com sua autorização. Na versão IA, o envio opcional inclui somente observações estruturadas do placar e candidatos de build.", 13, muted))
+     }
+ 
+     private fun showAdvanced() {
+         page = "advanced"
+         val ui = root()
+         back(ui, "CONFIGURAÇÕES AVANÇADAS")
+-        ui.addView(label("Conexão e desenvolvimento", 22, gold, true))
+-        ui.addView(label("Para o usuário final, estes campos só serão dispensáveis depois da publicação de um servidor confiável. Não coloque chave secreta de IA no celular.", 12, muted))
+-        ui.addView(space(12))
+-        val url = input("URL do servidor HTTPS", prefs.getString("url", "") ?: "")
+-        val token = input("Token de acesso ao servidor", prefs.getString("token", "") ?: "").apply {
++        val game = input("Pacote MLBB", prefs.getString("game_package", "com.mobile.legends").orEmpty())
++        val hero = input("Seu herói na partida (opcional)", prefs.getString("hero_hint", "").orEmpty())
++        val url = input("URL do servidor HTTPS", prefs.getString("url", "").orEmpty())
++        val token = input("Token de acesso ao servidor", prefs.getString("token", "").orEmpty()).apply {
+             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+         }
+-        val game = input("Pacote MLBB", prefs.getString("game_package", "com.mobile.legends") ?: "com.mobile.legends")
+-        val interval = input("Intervalo entre capturas (15 a 60 segundos)", prefs.getInt("interval", 25).toString()).apply {
+-            inputType = InputType.TYPE_CLASS_NUMBER
+-        }
+-        listOf(url, token, game, interval).forEach { ui.addView(it); ui.addView(space(9)) }
++        val inputs = if (BuildConfig.CLOUD_AVAILABLE) listOf(game, hero, url, token) else listOf(game, hero)
++        for (field in inputs) {
++            ui.addView(field)
++            ui.addView(space(9))
++        }
+         ui.addView(button("SALVAR CONFIGURAÇÃO", true) {
+-            val intValue = interval.text.toString().toIntOrNull()
+-            if (intValue == null || intValue !in 15..60) {
+-                toast("Use um intervalo de 15 a 60 segundos")
+-                return@button
+-            }
+             val address = url.text.toString().trim().trimEnd('/')
+-            if (address.isNotBlank() && !(address.startsWith("https://") ||
+-                (BuildConfig.DEBUG && address.startsWith("http://")))) {
+-                toast("Use uma URL HTTPS (HTTP permitido somente em debug)")
+-                return@button
+-            }
+-            prefs.edit().putString("url", address).putString("token", token.text.toString().trim())
+-                .putString("game_package", game.text.toString().trim())
+-                .putInt("interval", intValue).apply()
+-            toast("Configurações salvas")
++            if (BuildConfig.CLOUD_AVAILABLE && address.isNotBlank() && !address.startsWith("https://")) {
++                return@button toast("Use uma URL HTTPS")
++            }
++            val chosen = HeroCatalog.find(hero.text.toString())
++            if (hero.text.isNotBlank() && chosen == null) return@button toast("Confira o nome do herói")
++            val editor = prefs.edit().putString("game_package", game.text.toString().trim())
++                .putString("hero_hint", chosen.orEmpty())
++            if (BuildConfig.CLOUD_AVAILABLE) editor.putString("url", address).putString("token", token.text.toString().trim())
++            editor.apply()
+             showHome()
+         })
++        ui.addView(button("IMPORTAR CATÁLOGO TSV") {
++            startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
++                addCategory(Intent.CATEGORY_OPENABLE)
++                type = "*/*"
++            }, 7307)
++        })
+     }
+ 
+     private fun refreshStatus() {
+-        val connected = prefs.getString("url", "").orEmpty().ifBlank{BuildConfig.DEFAULT_API_URL}.startsWith("https://")
+-        statusLabel?.text = if (connected) "●  Servidor configurado (não verificado)" else "●  Análise local disponível • IA online não conectada"
++        statusLabel?.text = if (BuildConfig.CLOUD_AVAILABLE) "Base local • IA opcional" else "Base local • uso offline"
+         permissionLabel?.text = "Painel: " + if (Settings.canDrawOverlays(this)) "permitido" else "aguarda permissão"
+         permissionLabel?.append("   •   Acesso de uso: " + if (hasUsageAccess()) "permitido" else "aguarda permissão")
+     }
+@@ -619,9 +629,8 @@
+     }
+ 
+     private fun startCapture(useCloud:Boolean) {
+-        if(!useCloud&&GameData13.current==null){toast("Banco offline inválido. Reinstale o APK.");return}
++        if(GameData13.current==null){toast("Banco offline inválido. Reinstale o APK.");return}
+         val url = prefs.getString("url", "")?.trim().orEmpty()
+-        val token = prefs.getString("token", "")?.trim().orEmpty()
+         if (consentBox?.isChecked != true) return toast("Autorize a captura para esta sessão")
+         if (!Settings.canDrawOverlays(this)) return toast("Autorize o painel flutuante nas permissões")
+         if (!hasUsageAccess()) return toast("Autorize o acesso de uso nas permissões")
+@@ -632,6 +641,7 @@
+         if(useCloud&&cloudConsent?.isChecked!=true)return toast("Autorize o envio opcional para iniciar com I.A.")
+         sessionCloudAllowed=useCloud
+         val mgr = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
++        if (Build.VERSION.SDK_INT >= 34) toast("No seletor do Android, escolha somente o aplicativo MLBB")
+         startActivityForResult(mgr.createScreenCaptureIntent(), requestProjection)
+     }
+ 
+@@ -647,7 +657,36 @@
+             return
+         }
+         if(requestCode==7302){
+-            if(resultCode==RESULT_OK)data?.data?.let{ uri->showReplay(uri) }
++            if (resultCode == RESULT_OK && data != null) {
++                val selections = data.clipData?.let { clip -> (0 until clip.itemCount).map { clip.getItemAt(it).uri } }
++                    ?: listOfNotNull(data.data)
++                val replayUris = selections.distinct().take(2)
++                if (replayUris.isNotEmpty()) showReplay(replayUris)
++            }
++            return
++        }
++        if (requestCode == 7306 || requestCode == 7308) {
++            if (resultCode == RESULT_OK) data?.data?.let { uri ->
++                runCatching { requireNotNull(contentResolver.openOutputStream(uri)).use {
++                    val report = if (requestCode == 7306) diagnosticText() else checkNotNull(replayExport)
++                    it.write(report.toByteArray(Charsets.UTF_8))
++                } }.onSuccess { toast("Diagnóstico exportado") }
++                    .onFailure { toast("Falha ao exportar: " + it.javaClass.simpleName) }
++            }
++            return
++        }
++        if (requestCode == 7307) {
++            if (resultCode == RESULT_OK) data?.data?.let { uri ->
++                Thread {
++                    val imported = runCatching {
++                        requireNotNull(contentResolver.openInputStream(uri)).use { CatalogStorage.update(this, it) }
++                    }
++                    runOnUiThread {
++                        imported.onSuccess { toast("Catálogo $it salvo. Encerre e reabra o aplicativo para usar.") }
++                            .onFailure { toast("Catálogo rejeitado: " + it.javaClass.simpleName) }
++                    }
++                }.start()
++            }
+             return
+         }
+         if (requestCode == requestProjection && resultCode == RESULT_OK && data != null) {
+@@ -661,7 +700,12 @@
+             val pkg=prefs.getString("game_package","com.mobile.legends")?:"com.mobile.legends"
+             val launch=packageManager.getLaunchIntentForPackage(pkg)
+             if(launch!=null)startActivity(launch) else toast("Abra o MLBB manualmente.")
+-        } else if (requestCode == requestProjection) toast("Captura não autorizada")
++        } else if (requestCode == requestProjection) {
++            getSharedPreferences("capture_diagnostics", MODE_PRIVATE).edit()
++                .putString("ultimo", org.json.JSONObject().put("captura", "Permissão negada pelo Android")
++                    .put("servico_ativo", false).toString()).apply()
++            toast("Captura não autorizada")
++        }
+     }
+ 
+     private fun showCalibration(uri:Uri){
+@@ -751,53 +795,105 @@
+         }.start()
+     }
+ 
+-    private fun showReplay(uri:Uri){
+-        page="replay"
+-        val ui=root()
+-        back(ui,"DIAGNÓSTICO LOCAL")
+-        ui.addView(label("Leitura de captura salva",23,gold,true))
+-        ui.addView(label("Sem internet. Uma imagem estática é processada duas vezes para testar o detector, não a captura ao vivo.",12,muted))
+-        val state=label("Processando imagem...",14,cyan,true)
++    private fun diagnosticText(): String {
++        val saved = getSharedPreferences("capture_diagnostics", MODE_PRIVATE).getString("ultimo", null)
++        val data = saved?.let { runCatching { org.json.JSONObject(it) }.getOrNull() } ?: org.json.JSONObject()
++        return data.put("apk", BuildConfig.VERSION_NAME)
++            .put("android_api", Build.VERSION.SDK_INT)
++            .put("permissao_painel", Settings.canDrawOverlays(this))
++            .put("permissao_acesso_uso", hasUsageAccess())
++            .put("permissao_notificacao", Build.VERSION.SDK_INT < 33 ||
++                checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED)
++            .toString(2)
++    }
++
++    private fun showDiagnostics() {
++        page = "diagnostics"
++        val ui = root()
++        back(ui, "DIAGNÓSTICO DA CAPTURA")
++        val details = label(diagnosticText(), 13, white).apply { setTextIsSelectable(true) }
++        ui.addView(button("ATUALIZAR") { details.text = diagnosticText() })
++        ui.addView(button("EXPORTAR JSON") {
++            startActivityForResult(Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
++                addCategory(Intent.CATEGORY_OPENABLE)
++                type = "application/json"
++                putExtra(Intent.EXTRA_TITLE, "mlbb-diagnostico.json")
++            }, 7306)
++        })
++        ui.addView(details)
++    }
++
++    private fun showReplay(uris: List<Uri>) {
++        page = "replay"
++        replayExport = null
++        val ui = root()
++        back(ui, "TESTE LOCAL POR PRINT")
++        ui.addView(label("Selecione dois prints distintos do mesmo placar, em ordem. Um único print mostra apenas candidatos.", 12, muted))
++        val state = label("Processando ${uris.size} imagem(ns)…", 14, cyan, true)
+         ui.addView(state)
+-        val result=card()
+-        ui.addView(result)
+-        Thread{
+-            var analyzer:OfflineTextAnalyzer?=null
+-            try{
+-                val opts=android.graphics.BitmapFactory.Options().apply{inJustDecodeBounds=true}
+-                contentResolver.openInputStream(uri)?.use{android.graphics.BitmapFactory.decodeStream(it,null,opts)}
+-                require(opts.outWidth>0&&opts.outHeight>0){"Imagem inválida"}
+-                var sample=1
+-                while(maxOf(opts.outWidth,opts.outHeight)/sample>1800)sample*=2
+-                val bmp=contentResolver.openInputStream(uri)?.use{
+-                    android.graphics.BitmapFactory.decodeStream(it,null,android.graphics.BitmapFactory.Options().apply{inSampleSize=sample})
+-                }?:error("Não foi possível abrir a imagem")
+-                val bytes=java.io.ByteArrayOutputStream().use{out->
+-                    bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG,90,out);out.toByteArray()
+-                }
+-                bmp.recycle()
+-                val reader=OfflineTextAnalyzer(this)
+-                analyzer=reader
+-                val first=reader.analyze(bytes,"")
+-                val second=reader.analyze(bytes,"")
+-                runOnUiThread{
+-                    if(page!="replay"||isFinishing||isDestroyed)return@runOnUiThread
+-                    state.text="Teste local concluído"
+-                    result.addView(label("1ª leitura: "+first.status,12,cyan,true))
+-                    result.addView(label("2ª leitura: "+second.status,12,cyan,true))
+-                    result.addView(label(second.visionStatus,12,muted))
+-                    result.addView(label("Herói: "+(second.hero?:"não identificado"),15,gold,true))
+-                    result.addView(label("Item: "+(second.item?:"nenhum"),15,gold,true))
+-                    result.addView(label(second.reason,12,white))
+-                    for(r in second.players){
+-                        result.addView(label(r.hero+" • "+r.team+" • "+r.items.joinToString(", "),12,white))
++        val results = card()
++        ui.addView(results)
++        Thread {
++            val outcome = runCatching {
++                val analyzer = OfflineTextAnalyzer(this)
++                try {
++                    uris.map { uri ->
++                        val bitmap = readReplayFrame(uri)
++                        try { analyzer.analyze(bitmap, prefs.getString("hero_hint", "").orEmpty()) }
++                        finally { bitmap.recycle() }
+                     }
+-                    result.addView(label("Candidatos reproduzidos em uma imagem não são acurácia comprovada.",11,muted))
+-                }
+-            }catch(e:Exception){
+-                runOnUiThread{state.text="Falha no teste: "+e.javaClass.simpleName}
+-            }finally{analyzer?.close()}
++                } finally { analyzer.close() }
++            }
++            runOnUiThread {
++                if (page != "replay" || isFinishing || isDestroyed) return@runOnUiThread
++                outcome.onSuccess { readings ->
++                    state.text = "Leitura local concluída"
++                    val latest = readings.last()
++                    replayExport = org.json.JSONObject()
++                        .put("apk", BuildConfig.VERSION_NAME)
++                        .put("origem", "replay_local")
++                        .put("quadros", readings.size)
++                        .put("estado", latest.status)
++                        .put("placar_atual", latest.currentBoard)
++                        .put("tempo_partida", latest.matchTime ?: org.json.JSONObject.NULL)
++                        .put("heroi_proprio", latest.hero ?: org.json.JSONObject.NULL)
++                        .put("ocr", latest.ocrSummary)
++                        .put("jogadores", LiveDiagnostics.playerRows(latest)).toString(2)
++                    results.addView(button("EXPORTAR LEITURA JSON") {
++                        startActivityForResult(Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
++                            addCategory(Intent.CATEGORY_OPENABLE)
++                            type = "application/json"
++                            putExtra(Intent.EXTRA_TITLE, "mlbb-leitura.json")
++                        }, 7308)
++                    })
++                    for ((index, reading) in readings.withIndex()) {
++                        results.addView(label("Quadro ${index + 1} • ${reading.status}", 13, cyan, true))
++                        results.addView(label(reading.visionStatus, 12, muted))
++                        results.addView(label("Herói • ${reading.hero ?: "desconhecido"}", 14, gold, true))
++                        results.addView(label("Compra • ${reading.item ?: "indisponível"}", 14, gold, true))
++                        results.addView(label(reading.reason, 12, white))
++                        for (player in reading.players) {
++                            val slots = player.visualSlots.joinToString(", ") { "${it.index + 1}: ${it.name}" }
++                            results.addView(label("${player.hero} • ${player.team} • ${slots.ifBlank { "itens desconhecidos" }}", 12, white))
++                        }
++                    }
++                }.onFailure { state.text = "Falha na leitura (${it.javaClass.simpleName})" }
++            }
+         }.start()
++    }
++
++    private fun readReplayFrame(uri: Uri): android.graphics.Bitmap {
++        val opts = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
++        requireNotNull(contentResolver.openInputStream(uri)).use {
++            android.graphics.BitmapFactory.decodeStream(it, null, opts)
++        }
++        require(opts.outWidth > 0 && opts.outHeight > 0)
++        var sample = 1
++        while (maxOf(opts.outWidth, opts.outHeight) / sample > 2300) sample *= 2
++        return requireNotNull(contentResolver.openInputStream(uri)).use {
++            requireNotNull(android.graphics.BitmapFactory.decodeStream(it, null,
++                android.graphics.BitmapFactory.Options().apply { inSampleSize = sample }))
++        }
+     }
+ 
+     private fun back(ui: LinearLayout, name: String) {
+--- a/android-app/app/src/main/java/com/mlbb/assistant/OfflineTextAnalyzer.kt
++++ b/android-app/app/src/main/java/com/mlbb/assistant/OfflineTextAnalyzer.kt
+@@ -2,10 +2,11 @@
+ 
+ import android.content.Context
+ import android.graphics.Bitmap
+-import android.graphics.BitmapFactory
+ import android.os.SystemClock
++import com.google.android.gms.tasks.Task
+ import com.google.android.gms.tasks.Tasks
+ import com.google.mlkit.vision.common.InputImage
++import com.google.mlkit.vision.text.Text
+ import com.google.mlkit.vision.text.TextRecognition
+ import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+ import java.util.concurrent.TimeUnit
+@@ -14,8 +15,9 @@
+ 
+ /** Pipeline local com evidências separadas de hipóteses e memória limitada à sessão. */
+ class OfflineTextAnalyzer(context: Context) {
+-    private val dataset=runCatching { context.assets.open("strategy13.tsv").use { GameData13.install(it) } }.getOrNull()
++    private val dataset = CatalogStorage.load(context)
+     private val recognizer=TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
++    private var ocrTask: Task<Text>? = null
+     private val matcher=DetailedMatcher(context)
+     private val prefs=context.getSharedPreferences("settings",Context.MODE_PRIVATE)
+     private var recent=emptyList<ObservedPlayer>()
+@@ -41,24 +43,31 @@
+     private var clockCandidate:String?=null
+     private fun norm(s:String)=Normalizer.normalize(s,Normalizer.Form.NFD)
+         .replace(Regex("\\p{M}+"),"").lowercase()
+-    private fun reset() {
++    internal fun reset() {
+         recent=emptyList();lastSeen=0L;candidateSelf=null;previousHighlight=null;self=null
+         previousBoard=emptyList();previousBoardAt=0L;matchClock=null;statsCandidates=emptyMap();clockCandidate=null;history.clear();historyText="";cachedState=null;cachedAdvice=null;previousLevels=emptyMap();cashRepeat.clear();confirmedCash=null
+     }
+-    fun analyze(jpeg:ByteArray,heroHint:String):AnalysisResult {
+-        val b=BitmapFactory.decodeByteArray(jpeg,0,jpeg.size)?:return failure("Quadro inválido")
++    fun analyze(b: Bitmap, heroHint: String, now: Long = SystemClock.elapsedRealtime()): AnalysisResult {
+         try {
+             frames++
+-            val ocr=Tasks.await(recognizer.process(InputImage.fromBitmap(b,0)),8,TimeUnit.SECONDS)
+-            val t=norm(ocr.text)
+-            val now=SystemClock.elapsedRealtime()
+-            val tokens=ocr.textBlocks.flatMap{it.lines}.flatMap{it.elements}
++            if (!FrameContent.hasDetail(b)) {
++                reset()
++                return failure("Quadro sem detalhes")
++            }
++            val ocr = runCatching { readText(b) }
++            val text = ocr.getOrNull()
++            val ocrError = ocr.exceptionOrNull()?.javaClass?.simpleName
++            val t = norm(text?.text.orEmpty())
++            val lines = text?.textBlocks.orEmpty().flatMap { it.lines }
++            val tokens = lines.flatMap { it.elements }
++            val ocrSummary = if (ocrError == null) "${lines.size} linhas • ${tokens.size} elementos"
++                else "Falha OCR ($ocrError)"
+             val post=listOf("defeat","victory","derrota","vitoria","return to lobby","retornar ao lobby").any{
+                 Regex("\\b"+it+"\\b").containsMatchIn(t)}
+             if(post) {
+                 reset()
+                 return AnalysisResult("Resultado final",null,"Partida encerrada; dados descartados.",0,
+-                    "OCR local",null,0,0,"Nenhuma compra durante resultado final",frameCount=frames)
++                    "OCR local",null,0,0,"Nenhuma compra durante resultado final",frameCount=frames,ocrSummary=ocrSummary)
+             }
+             val draft=listOf("selecao de herois","selecionar heroi","escolha de herois","hero selection",
+                 "pick a hero","ban hero","banir heroi","escolha seu heroi","banimento","your turn","sua vez")
+@@ -71,20 +80,19 @@
+                 box.contains(q.centerX().toDouble()/b.width,q.centerY().toDouble()/b.height)
+             }==true}.sortedBy{it.boundingBox?.left?:0}.map{it.text}
+             val strongShop=listOf("equipamentos","equipment","loja","shop").any{Regex("\\b"+it+"\\b").containsMatchIn(t)}
+-            val numeric=tokens.count{it.text.matches(Regex("[0-9]{3,5}"))}
+-            val board=if(!draft && b.width>b.height && (statsLabel||numeric>=6||matcher.calibrated&&numeric>=4))
+-                matcher.board(b) else DetailedMatcher.Board(emptyList(),0)
+-            val manual=HeroCatalog.find(heroHint.ifBlank{prefs.getString("hero_hint","").orEmpty()})
+-            val named=HeroCatalog.heroes.filter{h->ocr.text.lines().any{norm(it.trim())==norm(h)}}
++            val board = if (!draft && b.width > b.height)
++                matcher.board(b, statsLabel) else DetailedMatcher.Board(emptyList(), 0)
++            val manual = HeroCatalog.find(heroHint.ifBlank { prefs.getString("hero_hint", "").orEmpty() })
+             if(draft) {
+                 reset()
+                 val lane=prefs.getString("lane_hint","Selva")?:"Selva"
+                 val left=mutableListOf<String>();val right=mutableListOf<String>()
+-                for (line in ocr.textBlocks.flatMap{it.lines}) {
++                for (line in lines) {
+                     val name=HeroCatalog.find(line.text.trim())?:continue
+                     val x=line.boundingBox?.centerX()?:continue
+                     if(x<b.width*.28)left.add(name) else if(x>b.width*.72)right.add(name)
+                 }
++                val named = HeroCatalog.heroes.filter { hero -> lines.any { norm(it.text.trim()) == norm(hero) } }
+                 // Exclude visible names conservatively; side association remains a hypothesis.
+                 val excluded=(left+right).distinct().joinToString(",")
+                 val picks=Strategy13.draft(lane,"","",prefs.getString("draft_favorites","").orEmpty(),excluded,prefs.getString("strategy_rank","all")?:"all").take(3)
+@@ -93,26 +101,33 @@
+                     named.size,"OCR local • sugestões preliminares",null,0,0,
+                     "Nomes lidos: "+named.joinToString(", ").ifBlank{"nenhum confirmado"},
+                     draftPicks=picks.map{it.hero}, alternatives=picks.map{it.reason},frameCount=frames,
+-                    observedAt=now)
++                    observedAt=now,ocrSummary=ocrSummary)
+             }
+             if(lastSeen>0&&!Evidence14.fresh(now,lastSeen)){reset()}
++            var confirmedBoard = false
+             if(board.rows.isNotEmpty()) {
+                 if(!Evidence14.pairFresh(now,previousBoardAt)){
+                     previousBoard=emptyList();previousHighlight=null;statsCandidates=emptyMap();clockCandidate=null;previousLevels=emptyMap()
+                 }
+-                val highlighted=matcher.highlight(b,board.rows)?.hero?.name
+-                if(self!=null && highlighted!=null && self!=highlighted) {
+-                    self=null; recent=emptyList(); lastSeen=0L;history.clear();historyText="";cachedState=null;cachedAdvice=null
+-                }
+-                candidateSelf=highlighted
+-                if(highlighted!=null&&highlighted==previousHighlight)self=highlighted
+-                previousHighlight=highlighted
+-                val accepted=board.rows.filter{r->r.hero!=null&&previousBoard.any{
+-                    it.side==r.side&&it.index==r.index&&it.hero?.name==r.hero?.name&&kotlin.math.abs(it.centerY-r.centerY)<b.height*.035}}
+-                val selected=self?:manual?.takeIf{hint->accepted.any{it.hero?.name==hint}}
++                val highlighted = matcher.highlight(b, board.rows)?.hero?.name
++                candidateSelf = highlighted
++                val accepted = board.rows.filter { row ->
++                    row.hero != null && previousBoard.any { old ->
++                        old.side == row.side && old.index == row.index &&
++                            old.hero?.name == row.hero.name && abs(old.centerY - row.centerY) < b.height * .035
++                    }
++                }
++                val asserted = manual?.takeIf { hint -> accepted.any { it.hero?.name == hint } }
++                val repeatedHighlight = highlighted?.takeIf { name ->
++                    name == previousHighlight && accepted.any { it.hero?.name == name }
++                }
++                val selected = asserted ?: repeatedHighlight
++                previousHighlight = highlighted
+                 val ownRow=accepted.singleOrNull{it.hero?.name==selected}
+                 val side=ownRow?.side
+                 if(accepted.isNotEmpty()) {
++                    confirmedBoard = true
++                    self = selected
+                     val nextStats=mutableMapOf<String,Pair<String?,String?>>()
+                     val nextLevels=mutableMapOf<String,Int>()
+                     recent=accepted.map{r->
+@@ -139,15 +154,11 @@
+                         ObservedPlayer(h.name,if(side==null)"Lado "+(r.side+1)
+                             else if(r.side==side)"Aliado" else "Inimigo",items.map{it.name},
+                             gold,kda,matcher.thumbnail(b,h),
+-                            items.mapNotNull{it2->matcher.thumbnail(b,it2)?.let{img->it2.name to img}}.toMap(),level=confirmedLevel)
++                            items.mapNotNull{it2->matcher.thumbnail(b,it2)?.let{img->it2.name to img}}.toMap(),level=confirmedLevel, visualSlots=stable, heroDistance=h.distance, heroMargin=h.margin, side=r.side, row=r.index)
+                     }
+                     statsCandidates=nextStats;previousLevels=nextLevels
+-                    val frame=Evidence14.Frame(now,ObservationParser.clockSeconds(matchClock),accepted.mapNotNull{r->
+-                        val h=r.hero?.name?:return@mapNotNull null
+-                        val previous=previousBoard.singleOrNull{it.side==r.side&&it.index==r.index}?:return@mapNotNull null
+-                        val observed=recent.singleOrNull{it.hero==h}?:return@mapNotNull null
+-                        val stable=Evidence14.stableSlots(previous.items.map{Evidence14.Slot(it.slot,it.name,it.distance,it.margin)},r.items.map{Evidence14.Slot(it.slot,it.name,it.distance,it.margin)})
+-                        Evidence14.Player(h,r.side,r.index,stable,observed.gold?.toIntOrNull(),observed.kda)
++                    val frame = Evidence14.Frame(now, ObservationParser.clockSeconds(matchClock), accepted.zip(recent).map { (row, player) ->
++                        Evidence14.Player(player.hero, row.side, row.index, player.visualSlots, player.gold?.toIntOrNull(), player.kda)
+                     })
+                     val update=history.record(frame)
+                     historyText="Histórico local: "+update.frames+" quadros confirmados"+(if(update.reset)" • novo segmento" else "")
+@@ -167,7 +178,7 @@
+                 statsCandidates=emptyMap();clockCandidate=null;previousLevels=emptyMap()
+             }
+             if(lastSeen>0&&!Evidence14.fresh(now,lastSeen)){reset()}
+-            val hero=self?:manual?.takeIf{hint->recent.any{it.hero==hint}}
++            val hero = self
+             val rivals=recent.filter{it.team=="Inimigo"}
+             val own=recent.singleOrNull{it.hero==hero}
+             val foes=rivals.map{it.hero}
+@@ -180,33 +191,52 @@
+                 val k=p.kda?.split("/")?.mapNotNull{it.toIntOrNull()}.orEmpty()
+                 return StrategicEngine.Player(p.hero,p.items,p.gold?.toIntOrNull(),k.getOrNull(0),k.getOrNull(1),k.getOrNull(2),p.level)
+             }
+-            val strategyState=StrategicEngine.State(hero,owned,
++            val strategyState=StrategicEngine.State(hero ?: manual,owned,
+                 rivals.map(::strategic),recent.filter{it.team=="Aliado"&&it.hero!=hero}.map(::strategic),
+                 ownGold=own?.gold?.toIntOrNull(),ownLevel=own?.level,budget=confirmedCash,minute=matchClock?.substringBefore(":")?.toIntOrNull(),
+                 inventoryKnown=false,lane=prefs.getString("build_lane",null)?.takeUnless{it=="Automática"},rank=prefs.getString("strategy_rank","all")?:"all")
+             val advice=if(cachedState==strategyState&&cachedAdvice!=null)cachedAdvice!! else Strategy13.recommend(strategyState).also{cachedState=strategyState;cachedAdvice=it}
+             val state=when {
+-                board.rows.isNotEmpty()&&recent.isEmpty()->"Placar candidato • confirmando próximo quadro"
++                board.rows.isNotEmpty()&&!confirmedBoard->"Placar candidato • confirmando próximo quadro"
+                 board.rows.isNotEmpty()->"Placar • observações repetidas"
+                 statsLabel->"Placar lido, ícones insuficientes"
+                 shop->"Loja • nomes visíveis não são compras"
+                 else->"Captura ativa • abra o placar"
+             }
+-            val shopNames=if(shop)ocr.text.lines().mapNotNull{GameData13.current?.canonicalItem(it.trim())?:StrategicEngine.canonicalItem(it.trim())}.distinct().take(8)else emptyList()
++            val shopNames=if(shop)lines.mapNotNull{GameData13.current?.canonicalItem(it.text.trim())?:StrategicEngine.canonicalItem(it.text.trim())}.distinct().take(8)else emptyList()
+             val observed=recent.size+recent.sumOf{it.items.size}
+-            val explanation=if(manual!=null&&self==null)"Herói informado manualmente"
+-                else if(self!=null)"Herói provável por destaque repetido" else "Herói não identificado"
++            val explanation = when {
++                hero != null && hero == manual -> "Herói informado e localizado no placar"
++                hero != null -> "Herói provável por destaque repetido"
++                manual != null -> "Plano inicial • herói informado • placar sem confirmação"
++                else -> "Herói não identificado"
++            }
+             return AnalysisResult(state,advice.next,advice.reason,observed,
+-                "Visão local experimental • "+explanation,hero,rivals.size,enemyItems.size,
+-                "OCR: "+tokens.size+" elementos • "+matcher.count+" referências • "+board.support+" candidatos • "+(if(matcher.calibrated)"calibração salva" else "layout estimado")+
++                explanation,hero ?: manual,rivals.size,enemyItems.size,
++                ocrSummary+" • "+matcher.count+" referências • "+board.support+" candidatos • "+board.layout+
+                     (if(candidateSelf!=null)" • destaque: "+candidateSelf else "")+(if(shopNames.isNotEmpty())" • nomes na loja: "+shopNames.joinToString(", ") else "")+(if(historyText.isNotBlank())" • "+historyText else "")+(confirmedCash?.let{" • saldo provável $it (loja)"}?:""),
+                 players=recent, alternatives=advice.alternatives,
+                 threatSummary=advice.threat,matchTime=matchClock,observedAt=lastSeen,frameCount=frames,
+-                buildPlan=advice.plan,purchaseDetail=advice.purchase.orEmpty())
++                buildPlan=advice.plan,purchaseDetail=advice.purchase.orEmpty(), currentBoard=confirmedBoard,
++                ocrSummary=ocrSummary, localError=ocrError ?: if(dataset == null) "Banco indisponível" else matcher.referenceError)
+         }catch(e:Exception){return failure("Falha de leitura: "+e.javaClass.simpleName)}
+-        finally{b.recycle()}
++
+     }
++    private fun readText(frame: Bitmap): Text {
++        check(ocrTask?.isComplete != false) { "OCR ainda ocupado" }
++        val image = checkNotNull(frame.copy(Bitmap.Config.ARGB_8888, false))
++        val task = try {
++            recognizer.process(InputImage.fromBitmap(image, 0))
++        } catch (error: Exception) {
++            image.recycle()
++            throw error
++        }
++        ocrTask = task
++        task.addOnCompleteListener({ action -> action.run() }) { image.recycle() }
++        return Tasks.await(task, FrameBudget.OCR_MS, TimeUnit.MILLISECONDS)
++    }
++
+     private fun failure(message:String)=AnalysisResult(message,null,"Sem leitura suficiente.",0,
+-        "Visão local",null,0,0,"Verifique o contador de quadros e a permissão de captura.",frameCount=frames)
++        "Visão local",null,0,0,"Verifique o contador de quadros e a permissão de captura.",frameCount=frames,localError=message)
+     fun close(){recognizer.close();reset()}
+ }
+--- a/android-app/app/src/main/java/com/mlbb/assistant/OverlayPanel.kt
++++ b/android-app/app/src/main/java/com/mlbb/assistant/OverlayPanel.kt
+@@ -50,6 +50,8 @@
+     private val economy=label("",10,muted)
+     private val clock=label("Quadros analisados: 0",10,muted)
+     private val diagnostic=label("",10,muted)
++    private val iaStatus=label("",10,muted)
++    private val iaAdvice=label("",12,white)
+     private val p=WindowManager.LayoutParams(dp(62),WindowManager.LayoutParams.WRAP_CONTENT,
+         WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+         WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+@@ -75,7 +77,7 @@
+             addView(row().apply{gravity=Gravity.CENTER_VERTICAL;addView(itemArt,LinearLayout.LayoutParams(dp(40),dp(40)))
+                 addView(item,LinearLayout.LayoutParams(0,-2,1f))})
+             addView(label("JUSTIFICATIVA ESTRATÉGICA",10,cyan,true));addView(reason)
+-            addView(alternate);addView(plan);addView(economy)
++            addView(alternate);addView(plan);addView(economy);addView(iaStatus);addView(iaAdvice)
+         })
+         content.addView(card(0xFF345776.toInt()).apply{
+             addView(label("AMEAÇAS DETECTADAS",11,cyan,true));addView(threats)
+@@ -104,18 +106,33 @@
+         scroll.layoutParams=LinearLayout.LayoutParams(-1,if(expanded) minOf(dp(460),(metrics.heightPixels*.75).toInt()) else 0)
+         clamp();if(attached)wm.updateViewLayout(surface,p)
+     }
+-    fun showStatus(message:String){
+-        status.text=message.take(180)
+-        diagnostic.text=message.take(180)
+-        if(message.contains("bloque",true)||message.contains("paus",true)||message.contains("erro",true)||message.contains("descartado",true)||message.contains("falha",true)){
+-            clock.text="Captura/observações interrompidas • dados podem estar antigos"
+-            lastResult=null
+-            item.text="Aguardando leitura atual";itemArt.visibility=View.GONE
+-            reason.text="Análise interrompida; não usar a sugestão anterior como atual."
+-            plan.text="";economy.text="";alternate.text="";threats.text="Sem leitura atual"
+-            playerRows.removeAllViews();heroPortrait.setImageBitmap(null);heroPortrait.visibility=View.GONE
+-        }
+-    }
++    fun showStatus(message: String) {
++        status.text = message
++    }
++
++    fun clearResult(message: String) {
++        lastResult = null
++        if (!expanded) heading.text = "M"
++        showStatus(message)
++        diagnostic.text = ""
++        clock.text = ""
++        hero.text = "Não identificado"
++        heroSource.text = ""
++        heroPortrait.setImageDrawable(null)
++        heroPortrait.visibility = View.GONE
++        item.text = "Aguardando leitura atual"
++        itemArt.setImageDrawable(null)
++        itemArt.visibility = View.GONE
++        reason.text = ""
++        threats.text = ""
++        plan.text = ""
++        alternate.text = ""
++        economy.text = ""
++        iaStatus.text = ""
++        iaAdvice.text = ""
++        playerRows.removeAllViews()
++    }
++
+     fun showResult(result:AnalysisResult){
+         lastResult=result
+         status.text=result.status
+@@ -137,6 +154,13 @@
+             (if(owned)"✓ " else if(n==result.item)"▶ " else (i+1).toString()+". ")+n
+         }.joinToString("\n")
+         economy.text=result.purchaseDetail
++        iaStatus.text = result.cloudStatus
++        iaAdvice.text = result.supplement?.let {
++            (it.item?.let { item -> "IA • $item\n" } ?: "IA\n") + it.advice +
++                "\nObservações citadas • " + it.evidenceHeroes.joinToString(", ")
++        }.orEmpty()
++        iaStatus.visibility = if (result.cloudStatus.isBlank()) View.GONE else View.VISIBLE
++        iaAdvice.visibility = if (result.supplement == null) View.GONE else View.VISIBLE
+         threats.text=result.threatSummary.ifBlank{"Sem evidência de ameaças"}
+         playerRows.removeAllViews()
+         if(result.players.isEmpty())playerRows.addView(label("Nenhum jogador confirmado por leituras repetidas.",11,muted))
+@@ -183,14 +207,7 @@
+         clock.text="Quadros: ${result.frameCount}  •  Última leitura: $age"+
+             (result.matchTime?.let{"  •  Tempo $it"}?:"")
+         if(result.observedAt>0 && !Evidence14.fresh(SystemClock.elapsedRealtime(),result.observedAt)){
+-            status.text="Dados antigos • abra o placar"
+-            item.text="Aguardando leitura atual"
+-            reason.text="As observações venceram. Não use esta sugestão como análise atual."
+-            itemArt.visibility=View.GONE
+-            threats.text="Observações vencidas"
+-            plan.text="";economy.text="";alternate.text=""
+-            playerRows.removeAllViews()
+-            playerRows.addView(label("Abra o placar para atualizar os jogadores.",11,muted))
++            clearResult("Dados antigos • abra o placar")
+         }
+     }
+     fun remove(){timer.removeCallbacks(tick);if(attached){runCatching{wm.removeView(surface)};attached=false}}
+--- a/android-app/app/src/main/java/com/mlbb/assistant/ProjectionService.kt
++++ b/android-app/app/src/main/java/com/mlbb/assistant/ProjectionService.kt
+@@ -8,13 +8,14 @@
+ import android.app.Service
+ import android.app.usage.UsageEvents
+ import android.app.usage.UsageStatsManager
+-import android.content.Context
+ import android.content.Intent
+ import android.content.pm.ServiceInfo
+ import android.graphics.Bitmap
+ import android.graphics.PixelFormat
++import android.graphics.Point
+ import android.hardware.display.DisplayManager
+ import android.hardware.display.VirtualDisplay
++import android.media.Image
+ import android.media.ImageReader
+ import android.media.projection.MediaProjection
+ import android.media.projection.MediaProjectionManager
+@@ -28,17 +29,10 @@
+ import android.os.SystemClock
+ import android.provider.Settings
+ import android.view.WindowManager
+-import java.io.ByteArrayOutputStream
+-import java.util.UUID
++import java.nio.ByteBuffer
+ import java.util.concurrent.Executors
+-import java.util.concurrent.atomic.AtomicBoolean
+-import kotlin.math.max
+-
+-/**
+- * Serviço de captura: consentimento Android obrigatório a CADA sessão.
+- * Só transmite JPEG quando confirma que o pacote MLBB é a última atividade retomada.
+- * Sem leitura de memória, sem controle do jogo, sem persistir capturas.
+- */
++import java.util.concurrent.atomic.AtomicLong
++
+ class ProjectionService : Service() {
+     companion object {
+         const val ACTION_START = "com.mlbb.assistant.START"
+@@ -47,41 +41,77 @@
+         const val EXTRA_RESULT_DATA = "result_data"
+         private const val CHANNEL = "mlbb_capture"
+         private const val NOTIFICATION_ID = 37
+-    }
+-
++        private const val NO_FRAME_MS = 8_000L
++    }
++
++    private val ui = Handler(Looper.getMainLooper())
++    private val cloudWorker = Executors.newSingleThreadExecutor()
++    private val prefs by lazy { getSharedPreferences("settings", MODE_PRIVATE) }
++    private val diagnostic by lazy { LiveDiagnostics(this) }
++    private val displays by lazy { checkNotNull(getSystemService(DisplayManager::class.java)) }
++    private val revision = AtomicLong()
++    @Volatile private var active = false
++    @Volatile private var paused = false
++    @Volatile private var reader: ImageReader? = null
++    @Volatile private var lastFrame = 0L
++    private var display: VirtualDisplay? = null
+     private var projection: MediaProjection? = null
+-    private val offlineAnalyzer by lazy { OfflineTextAnalyzer(this) }
+-    private var display: VirtualDisplay? = null
+-    private var reader: ImageReader? = null
+     private var overlay: OverlayPanel? = null
+     private var captureThread: HandlerThread? = null
+-    private var captureHandler: Handler? = null
+-    private val ui = Handler(Looper.getMainLooper())
+-    private val executor = Executors.newSingleThreadExecutor()
+-    private val uploadInFlight = AtomicBoolean(false)
+-    @Volatile private var paused = false
+-    private var capturedFrames=0
+-    private var completedFrames=0
+-    private var foregroundPackageInfo="não verificado"
+-    private var lastUploadAt = 0L
+-    private var intervalMs = 12_000L
+-    private var sessionId = UUID.randomUUID().toString()
+-    private var url = ""
+-    private var token = ""
++    private var capture: Handler? = null
++    private var analyzer: OfflineTextAnalyzer? = null
++    private var analyzerRevision = -1L
++    private var lastCheck = 0L
++    private var lastAnalysisStart = 0L
++    private var lastAnalysisRevision = -1L
++    private var captured = 0L
++    private var processed = 0
++    private var previousTimestamp = Long.MIN_VALUE
+     private var gamePackage = "com.mobile.legends"
+     private var heroHint = ""
+-    private var armor = false
+-    private var healing = false
+-    private var magic = false
++    private var url = ""
++    private var configuredToken = ""
++    private var token = ""
++    private var startedAt = 0L
++    private val cloud = CloudAnalysis()
++    private var currentEvidence: CloudEvidence? = null
++    private var lastForegroundCheck = 0L
++    private var foregroundActivity: Pair<String?, String?>? = null
++    private var latestResult: AnalysisResult? = null
++
++    private val watchdog = object : Runnable {
++        override fun run() {
++            if (!active) return
++            val now = SystemClock.elapsedRealtime()
++            val reference = maxOf(lastFrame, startedAt)
++            if (!paused && now - reference > NO_FRAME_MS) {
++                interruptResult("Captura sem novos quadros", "Sem novos quadros")
++            }
++            ui.postDelayed(this, 2_000)
++        }
++    }
+ 
+     private val projectionCallback = object : MediaProjection.Callback() {
+         override fun onStop() {
+-            ui.post { showStatus("Captura interrompida pelo Android"); stopSelf() }
+-        }
+-
+-        override fun onCapturedContentResize(width: Int, height: Int) {
+-            // Reutiliza a MESMA sessão; Android 14+ proíbe criar uma segunda projeção com mesmo token.
+-            ui.post { resizeSurface(width, height) }
++            diagnostic.state("Captura encerrada pelo Android", "MediaProjection interrompida")
++            stopSelf()
++        }
++
++        override fun onCapturedContentResize(width: Int, height: Int) = resizeCapture(width, height)
++
++        override fun onCapturedContentVisibilityChanged(isVisible: Boolean) {
++            if (!isVisible && active) interruptResult("Conteúdo do MLBB fora de foco")
++        }
++    }
++
++    private val rotationListener = object : DisplayManager.DisplayListener {
++        override fun onDisplayAdded(displayId: Int) = Unit
++        override fun onDisplayRemoved(displayId: Int) = Unit
++        override fun onDisplayChanged(displayId: Int) {
++            if (displayId == android.view.Display.DEFAULT_DISPLAY) {
++                val size = screenSize()
++                resizeCapture(size.x, size.y)
++            }
+         }
+     }
+ 
+@@ -92,238 +122,342 @@
+             stopSelf()
+             return START_NOT_STICKY
+         }
+-        if (intent?.action != ACTION_START || projection != null) return START_NOT_STICKY
+-        val resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, 0)
+-        @Suppress("DEPRECATION")
+-        val resultData = intent.getParcelableExtra<Intent>(EXTRA_RESULT_DATA)
+-        if (resultCode == 0 || resultData == null || !Settings.canDrawOverlays(this)) {
+-            stopSelf()
+-            return START_NOT_STICKY
+-        }
+-        val prefs = getSharedPreferences("settings", MODE_PRIVATE)
+-        url = if(intent.getBooleanExtra("cloud_allowed",false)) {
+-            prefs.getString("url","").orEmpty().ifBlank { BuildConfig.DEFAULT_API_URL }
+-        } else ""
+-        token = prefs.getString("token", "") ?: ""
+-        if(url.isNotBlank()&&!url.startsWith("https://")){url="";token=""}
+-        gamePackage = prefs.getString("game_package", "com.mobile.legends") ?: "com.mobile.legends"
+-        heroHint = prefs.getString("hero_hint", "") ?: ""
+-        intervalMs = if(url.isBlank()) 4_000L else 60_000L
+-        sessionId = UUID.randomUUID().toString()
+-        armor = prefs.getBoolean("armor", false)
+-        healing = prefs.getBoolean("healing", false)
+-        magic = prefs.getBoolean("magic", false)
+-
+-        makeNotificationChannel()
++        if (intent?.action != ACTION_START || active) return START_NOT_STICKY
+         try {
+-            if (Build.VERSION.SDK_INT >= 29) {
+-                startForeground(NOTIFICATION_ID, notification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
+-            } else {
+-                startForeground(NOTIFICATION_ID, notification())
+-            }
++            createNotificationChannel()
++            startForeground(NOTIFICATION_ID, notification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
++            @Suppress("DEPRECATION")
++            val consent = intent.getParcelableExtra<Intent>(EXTRA_RESULT_DATA)
++            check(Settings.canDrawOverlays(this) && consent != null)
++            val mode = if (BuildConfig.CLOUD_AVAILABLE && intent.getBooleanExtra("cloud_allowed", false)) "IA" else "Base"
++            diagnostic.start(mode)
++            if (mode == "IA") {
++                url = prefs.getString("url", "").orEmpty().ifBlank { BuildConfig.DEFAULT_API_URL }.takeIf {
++                    it.startsWith("https://")
++                }.orEmpty()
++                configuredToken = prefs.getString("token", "").orEmpty()
++                token = configuredToken
++                if (url.isBlank()) cloud.unavailable("IA sem endpoint HTTPS")
++            }
++            gamePackage = prefs.getString("game_package", "com.mobile.legends").orEmpty()
++            heroHint = prefs.getString("hero_hint", "").orEmpty()
++            startedAt = SystemClock.elapsedRealtime()
++            active = true
++            captureThread = HandlerThread("MLBB-local").also { it.start() }
++            capture = Handler(checkNotNull(captureThread).looper)
++            val manager = checkNotNull(getSystemService(MediaProjectionManager::class.java))
++            projection = checkNotNull(manager.getMediaProjection(intent.getIntExtra(EXTRA_RESULT_CODE, 0), consent))
++            projection?.registerCallback(projectionCallback, ui)
+             overlay = OverlayPanel(this, onPause = {
+                 paused = !paused
+-                showStatus(if (paused) "Envio pausado" else "Envio retomado")
++                if (paused) interruptResult("Captura pausada") else overlay?.showStatus("Aguardando quadro novo")
+             }, onStop = { stopSelf() }).also { it.show() }
+-            captureThread = HandlerThread("MLBB-capture").also { it.start() }
+-            captureHandler = Handler(captureThread!!.looper)
+-            val manager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+-            projection = manager.getMediaProjection(resultCode, resultData)
+-            projection!!.registerCallback(projectionCallback, ui)
+-            val size = android.graphics.Point()
+-            @Suppress("DEPRECATION")
+-            (getSystemService(WINDOW_SERVICE) as WindowManager).defaultDisplay.getRealSize(size)
++            capture?.post {
++                if (active) runCatching { OfflineTextAnalyzer(this) }
++                    .onSuccess { analyzer = it }
++                    .onFailure { diagnostic.error("Inicialização local: " + it.javaClass.simpleName) }
++            }
++            val size = screenSize()
+             resizeSurface(size.x, size.y)
+-            showStatus("Aguardando MLBB em primeiro plano")
+-            val chosenHero = HeroCatalog.find(heroHint)
+-            if (chosenHero != null) {
+-                val initial = Strategy13.recommend(StrategicEngine.State(chosenHero))
+-                overlay?.showResult(AnalysisResult(
+-                    status = "Aguardando placar • candidato offline",
+-                    item = initial.next,
+-                    reason = initial.reason,
+-                    detections = 0,
+-                    source = "Plano inicial, NÃO baseado em partida observada",
+-                    hero = chosenHero, enemies = 0, items = 0,
+-                    visionStatus = "Dados inimigos não detectados. Abra o placar durante o MLBB.", frameCount=0,buildPlan=initial.plan,purchaseDetail=initial.purchase.orEmpty()
++            if (Build.VERSION.SDK_INT < 34) displays.registerDisplayListener(rotationListener, ui)
++            overlay?.showStatus("Abra o placar no MLBB")
++            ui.post(watchdog)
++        } catch (error: Exception) {
++            diagnostic.state("Falha ao iniciar captura", error.javaClass.simpleName)
++            stopSelf()
++        }
++        return START_NOT_STICKY
++    }
++
++    @Suppress("DEPRECATION")
++    private fun screenSize() = Point().also {
++        checkNotNull(getSystemService(WindowManager::class.java)).defaultDisplay.getRealSize(it)
++    }
++
++    private fun resizeCapture(width: Int, height: Int) {
++        try {
++            resizeSurface(width, height)
++        } catch (error: Exception) {
++            diagnostic.state("Falha ao redimensionar captura", error.javaClass.simpleName)
++            stopSelf()
++        }
++    }
++
++    private fun resizeSurface(width: Int, height: Int) {
++        val session = projection ?: return
++        if (width <= 0 || height <= 0 || reader?.let { it.width == width && it.height == height } == true) return
++        val next = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 3)
++        try {
++            val dpi = resources.displayMetrics.densityDpi
++            val existing = display
++            if (existing == null) {
++                display = checkNotNull(session.createVirtualDisplay(
++                    "MLBB Assist Capture", width, height, dpi,
++                    DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR, next.surface, null, capture
+                 ))
+             } else {
+-                showStatus("Herói não identificado. Abra o placar; teste local disponível na tela inicial.")
++                existing.resize(width, height, dpi)
++                existing.surface = next.surface
+             }
+         } catch (error: Exception) {
+-            showStatus("Falha de captura: ${error.javaClass.simpleName}")
+-            stopSelf()
+-        }
+-        return START_NOT_STICKY
+-    }
+-
+-    private fun resizeSurface(width: Int, height: Int) {
+-        if (width <= 0 || height <= 0 || projection == null) return
+-        if (reader?.width == width && reader?.height == height) return
+-        val newReader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2)
+-        newReader.setOnImageAvailableListener({ r -> captureFrame(r) }, captureHandler)
+-        val oldReader = reader
+-        val virtual = display
+-        if (virtual == null) {
+-            val density = resources.displayMetrics.densityDpi
+-            display = projection?.createVirtualDisplay(
+-                "MLBB Assist Capture", width, height, density,
+-                DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
+-                newReader.surface, null, captureHandler
+-            )
+-        } else {
+-            virtual.resize(width, height, resources.displayMetrics.densityDpi)
+-            virtual.surface = newReader.surface
+-        }
+-        reader = newReader
+-        oldReader?.setOnImageAvailableListener(null, null)
+-        oldReader?.close()
+-    }
+-
+-    private fun captureFrame(imageReader: ImageReader) {
+-        val image = try { imageReader.acquireLatestImage() } catch (_: Exception) { null } ?: return
++            next.close()
++            throw error
++        }
++        val previous = reader
++        reader = next
++        interruptResult("Captura ativa • ${width}×${height}")
++        diagnostic.resolution(width, height)
++        if (previous != null) {
++            previous.setOnImageAvailableListener(null, null)
++            capture?.post { previous.close() }
++        }
++        next.setOnImageAvailableListener(::captureFrame, capture)
++    }
++
++    private fun captureFrame(source: ImageReader) {
++        if (!active || source !== reader) return
++        val image = try {
++            source.acquireLatestImage()
++        } catch (error: IllegalStateException) {
++            diagnostic.state("Falha ao ler quadro", error.javaClass.simpleName)
++            return
++        } ?: return
++        val now = SystemClock.elapsedRealtime()
++        val generation = revision.get()
++        var bitmap: Bitmap? = null
++        image.use {
++            if (image.timestamp == previousTimestamp && previousTimestamp != Long.MIN_VALUE && image.timestamp != 0L) return
++            previousTimestamp = image.timestamp
++            lastFrame = now
++            diagnostic.received(++captured, now)
++            if (paused || !FrameBudget.due(now, lastCheck)) return
++            lastCheck = now
++            if (!gameInForeground()) {
++                ui.post {
++                    if (active && generation == revision.get()) interruptResult("MLBB fora de foco")
++                }
++                return
++            }
++            val previous = lastAnalysisStart.takeIf { lastAnalysisRevision == generation && it > 0 }
++            diagnostic.started(previous?.let { now - it })
++            lastAnalysisStart = now
++            lastAnalysisRevision = generation
++            try {
++                bitmap = decodeFrame(image)
++            } catch (error: Exception) {
++                diagnostic.state("Erro na conversão RGBA", error.javaClass.simpleName)
++            }
++        }
++        val frame = bitmap ?: return
+         try {
+-            capturedFrames++
+-            if (paused || uploadInFlight.get()) return
+-            val now = SystemClock.elapsedRealtime()
+-            if (now - lastUploadAt < intervalMs) return
+-            // Evita consultar UsageStats dezenas de vezes por segundo enquanto jogo está fechado.
+-            lastUploadAt = now
+-            if (!isGameForeground()) {
+-                showStatus("Captura recebida: $capturedFrames quadros. Análise bloqueada: MLBB não confirmado em foco ($foregroundPackageInfo).")
++            if (!active || source !== reader || generation != revision.get()) return
++            val local = analyzer ?: OfflineTextAnalyzer(this).also { analyzer = it }
++            if (analyzerRevision != generation) {
++                local.reset()
++                analyzerRevision = generation
++            }
++            val result = local.analyze(frame, heroHint, now)
++            val duration = SystemClock.elapsedRealtime() - now
++            if (duration > FrameBudget.DEADLINE_MS) {
++                local.reset()
++                ui.post {
++                    if (active && generation == revision.get()) {
++                        diagnostic.deadlineExceeded(duration)
++                        overlay?.showStatus("Quadro excedeu 1 s • aguardando nova leitura")
++                    }
++                }
+                 return
+             }
+-            if (!uploadInFlight.compareAndSet(false, true)) return
+-            val jpeg = try { encodeJpeg(image) } catch (_: Exception) { null }
+-            if (jpeg == null) {
+-                uploadInFlight.set(false)
+-                showStatus("Falha ao converter quadro")
++            if (!active || paused || source !== reader || generation != revision.get()) return
++            if (!gameInForeground()) {
++                ui.post {
++                    if (active && generation == revision.get()) interruptResult("MLBB fora de foco")
++                }
+                 return
+             }
+-            executor.execute {
+-                try {
+-                    // Valida de novo imediatamente antes do upload; não é garantia atômica ao trocar de app.
+-                    if (paused || !isGameForeground()) {
+-                        showStatus("Quadro descartado: MLBB não confirmado em foco")
+-                        return@execute
++            ui.post {
++                if (!active || paused || generation != revision.get()) return@post
++                val finished = SystemClock.elapsedRealtime()
++                if (!FrameBudget.withinDeadline(finished, now)) {
++                    diagnostic.deadlineExceeded(finished - now)
++                    overlay?.showStatus("Quadro excedeu 1 s • aguardando nova leitura")
++                    return@post
++                }
++                val completed = result.copy(frameCount = ++processed)
++                diagnostic.analyzed(completed, finished - now)
++                publishLocal(completed, generation)
++            }
++        } catch (error: Exception) {
++            diagnostic.state("Erro na análise local", error.javaClass.simpleName)
++        } finally {
++            frame.recycle()
++        }
++    }
++
++    private fun publishLocal(result: AnalysisResult, generation: Long) {
++        if (!active || paused || generation != revision.get()) return
++        latestResult = result
++        val evidence = CloudEvidence.from(result, SystemClock.elapsedRealtime())
++        currentEvidence = evidence
++        render()
++        if (url.isBlank() || evidence == null || !cloud.start(evidence, SystemClock.elapsedRealtime())) return
++        render()
++        cloudWorker.execute {
++            val response = try {
++                if (!active || paused || generation != revision.get() || !gameInForeground()) {
++                    CloudOutcome(null, "IA aguardando MLBB em foco")
++                } else {
++                    if (token.isBlank()) token = CloudSession.connect(url)
++                    if (!active || paused || generation != revision.get() || !gameInForeground()) {
++                        CloudOutcome(null, "IA aguardando MLBB em foco")
++                    } else {
++                        CloudOutcome(UploadClient.supplement(url, token, evidence), null)
+                     }
+-                    showStatus("Analisando quadro • recebidos: $capturedFrames • concluídos: $completedFrames")
+-                    val result = if (url.isBlank()) {
+-                        offlineAnalyzer.analyze(jpeg, heroHint)
+-                    } else {
+-                        try {
+-                            if(token.isBlank()) token=CloudSession.connect(url)
+-                            if(paused || !isGameForeground()) return@execute
+-                            UploadClient.analyze(url, token, jpeg, sessionId, heroHint, armor, healing, magic, getSharedPreferences("settings",MODE_PRIVATE).getString("lane_hint","Selva")?:"Selva")
+-                        } catch (network: Exception) {
+-                            offlineAnalyzer.analyze(jpeg, heroHint).copy(
+-                                visionStatus = "Modo I.A. indisponível; App Base local experimental"
+-                            )
+-                        }
+-                    }
+-                    if(paused||!isGameForeground()){
+-                        showStatus("Quadro descartado: MLBB não confirmado em foco após análise");return@execute
+-                    }
+-                    completedFrames++
+-                    val enriched=result.copy(frameCount=completedFrames,source=(if(url.isBlank())"APP BASE • " else "MODO I.A. • ")+result.source)
+-                    ui.post { overlay?.showResult(enriched) }
+-                    getSharedPreferences("settings",MODE_PRIVATE).edit()
+-                        .putString("last_diagnostic",enriched.status+" | quadros: "+completedFrames).apply()
+-                } catch (error: Exception) {
+-                    val detail = error.message?.take(120) ?: error.javaClass.simpleName
+-                    showStatus("Falha na análise: "+error.javaClass.simpleName)
+-                } finally {
+-                    uploadInFlight.set(false)
+                 }
+-            }
+-        } finally {
+-            image.close()
+-        }
+-    }
+-
+-    private fun encodeJpeg(image: android.media.Image): ByteArray {
+-        val plane = image.planes[0]
+-        val pixelStride = plane.pixelStride
+-        val rowStride = plane.rowStride
+-        require(pixelStride == 4) { "Formato RGBA inesperado" }
+-        val paddedWidth = rowStride / pixelStride
+-        val paddedBitmap = Bitmap.createBitmap(paddedWidth, image.height, Bitmap.Config.ARGB_8888)
+-        plane.buffer.rewind()
+-        paddedBitmap.copyPixelsFromBuffer(plane.buffer)
+-        val cropped = Bitmap.createBitmap(paddedBitmap, 0, 0, image.width, image.height)
+-        val ratio = (1600f / max(image.width, image.height)).coerceAtMost(1f)
+-        val newWidth = (image.width * ratio).toInt().coerceAtLeast(1)
+-        val newHeight = (image.height * ratio).toInt().coerceAtLeast(1)
+-        val finalBitmap = Bitmap.createScaledBitmap(cropped, newWidth, newHeight, true)
+-        val output = ByteArrayOutputStream()
+-        finalBitmap.compress(Bitmap.CompressFormat.JPEG, 76, output)
+-        if (finalBitmap !== cropped) finalBitmap.recycle()
+-        if (cropped !== paddedBitmap) cropped.recycle()
+-        paddedBitmap.recycle()
+-        return output.toByteArray()
+-    }
+-
+-    /** Sem acesso de uso ou com outro aplicativo em foco: NÃO envia nenhum frame. */
+-    private fun isGameForeground(): Boolean {
+-        val pm = getSystemService(POWER_SERVICE) as PowerManager
+-        if (!pm.isInteractive) return false
+-        val ops = getSystemService(APP_OPS_SERVICE) as AppOpsManager
++            } catch (error: CloudConfigurationError) {
++                CloudOutcome(null, "IA indisponível: " + error.detail)
++            } catch (error: CloudHttpError) {
++                if (error.code == 401 && configuredToken.isBlank()) token = ""
++                CloudOutcome(null, "IA indisponível (HTTP ${error.code})")
++            } catch (error: Exception) {
++                CloudOutcome(null, "IA indisponível (${error.javaClass.simpleName})")
++            }
++            ui.post {
++                if (!active) return@post
++                cloud.finish(evidence, response, generation == revision.get(), SystemClock.elapsedRealtime())
++                if (response.error?.startsWith("IA indisponível") == true) diagnostic.error(response.error)
++                render()
++            }
++        }
++    }
++
++    private fun render() {
++        val now = SystemClock.elapsedRealtime()
++        val evidence = currentEvidence?.takeIf {
++            latestResult?.let { local -> Evidence14.pairFresh(now, local.observedAt) } == true
++        }
++        val state = cloud.status(evidence, now)
++        if (BuildConfig.CLOUD_AVAILABLE && diagnostic.mode == "IA") diagnostic.cloud(state)
++        val local = latestResult ?: return
++        overlay?.showResult(local.copy(
++            cloudStatus = if (diagnostic.mode == "IA") state else "",
++            supplement = cloud.supplement(evidence, now)
++        ))
++    }
++
++    private fun interruptResult(message: String, error: String? = null) {
++        revision.incrementAndGet()
++        currentEvidence = null
++        latestResult = null
++        cloud.clear()
++        diagnostic.state(message, error)
++        overlay?.clearResult(message)
++    }
++
++    @Synchronized
++    private fun gameInForeground(): Boolean {
++        if (getSystemService(PowerManager::class.java)?.isInteractive != true) return false
++        val ops = getSystemService(AppOpsManager::class.java) ?: return false
+         if (ops.checkOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), packageName)
+             != AppOpsManager.MODE_ALLOWED) return false
+-        val usage = getSystemService(USAGE_STATS_SERVICE) as UsageStatsManager
+         val now = System.currentTimeMillis()
+-        val events = usage.queryEvents(now - 6 * 60 * 60 * 1000L, now)
+-        val item = UsageEvents.Event()
+-        var foregroundPackage: String? = null
++        if (lastForegroundCheck == 0L || now < lastForegroundCheck) {
++            foregroundActivity = null
++            lastForegroundCheck = now - 6 * 60 * 60 * 1000L
++        }
++        val events = getSystemService(UsageStatsManager::class.java)?.queryEvents(
++            lastForegroundCheck - 2_000, now
++        )
++            ?: return false
++        val event = UsageEvents.Event()
+         while (events.hasNextEvent()) {
+-            events.getNextEvent(item)
+-            if (item.eventType == UsageEvents.Event.ACTIVITY_RESUMED ||
+-                item.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND) {
+-                foregroundPackage = item.packageName
+-            }
+-        }
+-        foregroundPackageInfo=if(foregroundPackage==gamePackage)"MLBB" else if(foregroundPackage==null)"sem evento de uso" else "outro pacote"
+-        return foregroundPackage == gamePackage
+-    }
+-
+-    private fun showStatus(message: String) {
+-        getSharedPreferences("settings",MODE_PRIVATE).edit().putString("last_diagnostic",message.take(220)).apply()
+-        ui.post { overlay?.showStatus(message) }
+-    }
+-
+-    private fun makeNotificationChannel() {
+-        val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+-        manager.createNotificationChannel(NotificationChannel(CHANNEL, "MLBB — Captura ativa", NotificationManager.IMPORTANCE_LOW))
++            events.getNextEvent(event)
++            if (event.packageName != gamePackage && event.eventType != UsageEvents.Event.ACTIVITY_RESUMED) continue
++            val activity = event.packageName to event.className
++            when (event.eventType) {
++                UsageEvents.Event.ACTIVITY_RESUMED -> foregroundActivity = activity
++                UsageEvents.Event.ACTIVITY_PAUSED, UsageEvents.Event.ACTIVITY_STOPPED ->
++                    if (foregroundActivity == activity) foregroundActivity = null
++            }
++        }
++        lastForegroundCheck = now
++        return foregroundActivity?.first == gamePackage
++    }
++
++    private fun decodeFrame(image: Image): Bitmap {
++        val plane = image.planes.first()
++        val rowBytes = image.width * 4
++        val input = plane.buffer
++        require(plane.pixelStride == 4 && plane.rowStride >= rowBytes)
++        require(input.remaining().toLong() >= (image.height - 1L) * plane.rowStride + rowBytes)
++        val pixels = if (plane.rowStride == rowBytes) {
++            input
++        } else {
++            val result = ByteBuffer.allocate(rowBytes * image.height)
++            val start = input.position()
++            for (y in 0 until image.height) {
++                val offset = start + y * plane.rowStride
++                input.limit(offset + rowBytes)
++                input.position(offset)
++                result.put(input)
++            }
++            result.flip()
++            result
++        }
++        val original = Bitmap.createBitmap(image.width, image.height, Bitmap.Config.ARGB_8888)
++        try {
++            original.copyPixelsFromBuffer(pixels)
++            val ratio = (1920f / maxOf(image.width, image.height)).coerceAtMost(1f)
++            return if (ratio == 1f) original else Bitmap.createScaledBitmap(
++                original, (image.width * ratio).toInt().coerceAtLeast(1),
++                (image.height * ratio).toInt().coerceAtLeast(1), true
++            ).also { original.recycle() }
++        } catch (error: Exception) {
++            original.recycle()
++            throw error
++        }
++    }
++
++    private fun createNotificationChannel() {
++        checkNotNull(getSystemService(NotificationManager::class.java)).createNotificationChannel(
++            NotificationChannel(CHANNEL, "MLBB — Captura ativa", NotificationManager.IMPORTANCE_LOW)
++        )
+     }
+ 
+     private fun notification(): Notification {
+-        val stopIntent = Intent(this, ProjectionService::class.java).setAction(ACTION_STOP)
+-        val stopPending = PendingIntent.getService(this, 100, stopIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+-        val openIntent = Intent(this, MainActivity::class.java)
+-        val openPending = PendingIntent.getActivity(this, 101, openIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
++        val flags = PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
++        val stop = PendingIntent.getService(this, 100, Intent(this, ProjectionService::class.java).setAction(ACTION_STOP), flags)
++        val open = PendingIntent.getActivity(this, 101, Intent(this, MainActivity::class.java), flags)
+         return Notification.Builder(this, CHANNEL)
+-            .setSmallIcon(com.mlbb.assistant.R.drawable.ic_assistant)
+-            .setContentTitle("MLBB ASSISTANT ativo")
+-            .setContentText("Captura autorizada; envio apenas quando MLBB está em foco")
+-            .setContentIntent(openPending)
++            .setSmallIcon(R.drawable.ic_assistant)
++            .setContentTitle("MLBB Assistant ativo")
++            .setContentText("Toque para abrir o aplicativo")
++            .setContentIntent(open)
+             .setOngoing(true)
+-            .addAction(Notification.Action.Builder(null, "Encerrar", stopPending).build())
++            .addAction(Notification.Action.Builder(null, "Encerrar", stop).build())
+             .build()
+     }
+ 
+     override fun onDestroy() {
++        active = false
++        revision.incrementAndGet()
++        ui.removeCallbacks(watchdog)
++        cloudWorker.shutdownNow()
+         overlay?.remove()
+         overlay = null
+-        reader?.setOnImageAvailableListener(null, null)
+-        reader?.close(); reader = null
+-        display?.release(); display = null
+-        val stoppedProjection = projection
+-        projection = null
+-        stoppedProjection?.unregisterCallback(projectionCallback)
+-        stoppedProjection?.stop()
+-        captureThread?.quitSafely(); captureThread = null
+-        executor.shutdownNow()
+-        offlineAnalyzer.close()
++        if (Build.VERSION.SDK_INT < 34) displays.unregisterDisplayListener(rotationListener)
++        val previous = reader
++        reader = null
++        previous?.setOnImageAvailableListener(null, null)
++        display?.release()
++        projection?.unregisterCallback(projectionCallback)
++        projection?.stop()
++        capture?.post {
++            previous?.close()
++            analyzer?.close()
++        }
++        captureThread?.quitSafely()
++        diagnostic.ended()
+         super.onDestroy()
+     }
+ }
+--- a/android-app/app/src/main/java/com/mlbb/assistant/UploadClient.kt
++++ b/android-app/app/src/main/java/com/mlbb/assistant/UploadClient.kt
+@@ -1,17 +1,19 @@
+ package com.mlbb.assistant
+ 
+ import org.json.JSONObject
+-import java.io.DataOutputStream
+ import java.net.HttpURLConnection
+ import java.net.URL
+ import java.nio.charset.StandardCharsets
+-import java.util.UUID
++import org.json.JSONArray
+ 
+ data class ObservedPlayer(
+     val hero:String,val team:String,val items:List<String>,
+     val gold:String?=null,val kda:String?=null,
+     val portrait:android.graphics.Bitmap?=null,
+-    val itemImages:Map<String,android.graphics.Bitmap> = emptyMap(),val level:Int?=null
++    val itemImages:Map<String,android.graphics.Bitmap> = emptyMap(),val level:Int?=null,
++    val visualSlots: List<Evidence14.Slot> = emptyList(),
++    val heroDistance: Double? = null, val heroMargin: Double? = null,
++    val side: Int? = null, val row: Int? = null
+ )
+ 
+ data class AnalysisResult(
+@@ -32,87 +34,70 @@
+     val observedAt: Long = 0L,
+     val frameCount: Int = 0,
+     val buildPlan: List<String> = emptyList(),
+-    val purchaseDetail: String = ""
++    val purchaseDetail: String = "",
++    val currentBoard: Boolean = false,
++    val ocrSummary: String = "",
++    val localError: String? = null,
++    val cloudStatus: String = "",
++    val supplement: CloudSupplement? = null
+ )
+ 
+-/** Envia somente JPEG reduzido; não armazena a captura no aparelho ou servidor. */
++internal class CloudHttpError(val code: Int) : Exception()
++
++/** Sends only structured observations, using the user's configured HTTPS server. */
+ object UploadClient {
+-    fun analyze(
+-        baseUrl: String, token: String, jpeg: ByteArray, sessionId: String, heroHint: String,
+-        armor: Boolean, healing: Boolean, magic: Boolean, lane: String = "Selva"
+-    ): AnalysisResult {
+-        val address = URL("${baseUrl.trimEnd('/')}/analyze")
+-        val conn = address.openConnection() as HttpURLConnection
+-        val boundary = "mlbb-${UUID.randomUUID()}"
++    internal fun supplement(baseUrl: String, token: String, evidence: CloudEvidence): CloudSupplement? {
++        require(baseUrl.startsWith("https://"))
++        val players = JSONArray()
++        for (player in evidence.players) {
++            players.put(JSONObject().put("hero", player.hero).put("team", player.team)
++                .put("items", JSONArray(player.items)).put("gold", player.gold ?: JSONObject.NULL)
++                .put("level", player.level ?: JSONObject.NULL))
++        }
++        val body = JSONObject().put("hero", evidence.hero).put("players", players)
++            .put("candidates", JSONArray(evidence.candidates)).put("minute", evidence.minute ?: JSONObject.NULL)
++            .toString().toByteArray(StandardCharsets.UTF_8)
++        val conn = URL(baseUrl.trimEnd('/') + "/strategy").openConnection() as HttpURLConnection
+         try {
+-            conn.instanceFollowRedirects=false
++            conn.instanceFollowRedirects = false
+             conn.requestMethod = "POST"
+-            conn.connectTimeout = 8_000
+-            conn.readTimeout = 40_000
++            conn.connectTimeout = 5_000
++            conn.readTimeout = 18_000
+             conn.doOutput = true
+-            conn.setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
++            conn.setRequestProperty("Content-Type", "application/json")
+             conn.setRequestProperty("Accept", "application/json")
+-            if (token.isNotBlank()) conn.setRequestProperty("Authorization", "Bearer $token")
+-            DataOutputStream(conn.outputStream).use { out ->
+-                val fields = mapOf(
+-                    "hero_hint" to heroHint,
+-                    "lane_hint" to lane,
+-                    "session_id" to sessionId,
+-                    "enemy_armor_stacking" to armor.toString(),
+-                    "enemy_healing_high" to healing.toString(),
+-                    "enemy_magic_burst" to magic.toString()
+-                )
+-                for ((name, value) in fields) {
+-                    out.write("--$boundary\r\nContent-Disposition: form-data; name=\"$name\"\r\n\r\n$value\r\n".toByteArray(StandardCharsets.UTF_8))
+-                }
+-                out.write("--$boundary\r\nContent-Disposition: form-data; name=\"image\"; filename=\"frame.jpg\"\r\nContent-Type: image/jpeg\r\n\r\n".toByteArray(StandardCharsets.UTF_8))
+-                out.write(jpeg)
+-                out.write("\r\n--$boundary--\r\n".toByteArray(StandardCharsets.UTF_8))
++            conn.setRequestProperty("Authorization", "Bearer $token")
++            conn.setFixedLengthStreamingMode(body.size)
++            conn.outputStream.use { it.write(body) }
++            val code = conn.responseCode
++            if (code !in 200..299) throw CloudHttpError(code)
++            val payload = conn.inputStream.bufferedReader().use { reader ->
++                val buffer = CharArray(4097)
++                val size = reader.readFullyInto(buffer)
++                require(size < buffer.size)
++                JSONObject(String(buffer, 0, size))
+             }
+-            val code = conn.responseCode
+-            if (code !in 200..299) {
+-                val payload = conn.errorStream?.bufferedReader()?.readText()?.take(180) ?: ""
+-                throw IllegalStateException("HTTP $code: $payload")
+-            }
+-            val response = JSONObject(conn.inputStream.bufferedReader().readText())
+-            val detected = response.optJSONArray("detections")?.length() ?: 0
+-            val recommendation = response.optJSONObject("recommendation")
+-            val extracted = response.optJSONObject("extracted")
+-            val rows=response.optJSONArray("players")
+-            val players=buildList {
+-                if(rows!=null)for(i in 0 until rows.length()){
+-                    val r=rows.optJSONObject(i)?:continue
+-                    val h=r.optString("hero").takeIf{it.isNotBlank()&&it!="null"}?:continue
+-                    val team=when(r.optString("team")){"ally"->"Aliado";"enemy"->"Inimigo";else->"Incerto"}
+-                    val a=r.optJSONArray("items")
+-                    add(ObservedPlayer(h,team,if(a==null)emptyList()else(0 until a.length()).map{a.optString(it)},
+-                        r.optString("gold").takeIf{it!="null"&&it.isNotBlank()},
+-                        r.optString("kda").takeIf{it!="null"&&it.isNotBlank()}))
+-                }
+-            }
+-            val picks=response.optJSONArray("draft_picks")
+-            val draft=if(picks==null)emptyList()else(0 until picks.length()).mapNotNull{
+-                picks.optJSONObject(it)?.optString("hero")?.takeIf{v->v.isNotBlank()}
+-            }
+-            val plan=response.optJSONArray("build_plan")
+-            val readSource = extracted?.optString("hero_source", "desconhecido") ?: "desconhecido"
+-            return AnalysisResult(
+-                status = response.optString("message", "Imagem enviada"),
+-                item = recommendation?.optString("item")?.takeIf { it.isNotBlank() },
+-                reason = recommendation?.optString("reason")
+-                    ?: response.optString("message", "Nenhuma recomendação disponível"),
+-                detections = detected,
+-                source = "Fonte: $readSource • " + (recommendation?.optString("source", "sem recomendação") ?: "sem recomendação"),
+-                hero = extracted?.optString("hero")?.takeIf { it.isNotBlank() && it != "null" },
+-                enemies = extracted?.optJSONArray("enemies")?.length() ?: 0,
+-                items = extracted?.optJSONArray("owned_items")?.length() ?: 0,
+-                visionStatus = response.optString("vision_status", "sem visão online"),
+-                players=players,draftPicks=draft,buildPlan=if(plan==null)emptyList()else(0 until plan.length()).map{plan.optString(it)},
+-                matchTime=response.optString("match_time").takeIf{it.isNotBlank()&&it!="null"},
+-                observedAt=if(players.isNotEmpty()||draft.isNotEmpty()) android.os.SystemClock.elapsedRealtime() else 0L
+-            )
++            if (payload.isNull("advice")) return null
++            val item = payload.optString("item").takeIf { !payload.isNull("item") }
++            val advice = payload.getString("advice").trim()
++            val heroes = payload.getJSONArray("evidence_heroes")
++            require(heroes.length() in 1..5)
++            val cited = (0 until heroes.length()).map(heroes::getString)
++            require(advice.length in 12..400 && (item == null || item in evidence.candidates))
++            require(cited.all { hero -> evidence.players.any { it.hero == hero } })
++            return CloudSupplement(item, advice, cited)
+         } finally {
+             conn.disconnect()
+         }
+     }
++
++    private fun java.io.Reader.readFullyInto(buffer: CharArray): Int {
++        var size = 0
++        while (size < buffer.size) {
++            val n = read(buffer, size, buffer.size - size)
++            if (n < 0) break
++            size += n
++        }
++        return size
++    }
+ }

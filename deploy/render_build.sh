@@ -171,4 +171,5 @@ python3 deploy/harden_backend.py
 python3 updates/v0_7_1/backend.py
 cp updates/v0_7_2/*.py server/
 python3 updates/v0_7_2/apply.py
+python3 updates/v0_17/apply.py --server-only
 python3 -m pip install -r server/requirements.txt

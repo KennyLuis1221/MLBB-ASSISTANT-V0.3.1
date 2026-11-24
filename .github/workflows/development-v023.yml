@@ -1,13 +1,15 @@
-name: Compilar APK experimental V0.16 para testes (não release)
+name: Validar APKs Base e IA V0.17
 
 on:
   workflow_dispatch:
   push:
-    branches: [development-v023]
+    branches: [development-v023, codex/mlbb-auditoria]
     paths:
       - 'updates/v0_14/**'
       - 'updates/v0_15/**'
       - 'updates/v0_16/**'
+      - 'updates/v0_17/**'
+      - 'tools/**'
       - '.github/workflows/development-v023.yml'
 
 permissions:
@@ -290,6 +292,11 @@ jobs:
           Path("android-app/app/src/main/assets/TEST_BUILD_ONLY.txt").write_text("Experimental test build. Not release-ready. See development-data-audit.json. No certification of live recognition or game compliance.\n")
           PY
           cp development-data-audit.json android-app/app/src/main/assets/
+      - name: Aplicar auditoria de captura e estratégia V0.17
+        run: |
+          python3 updates/v0_17/apply.py
+          python3 -m pytest -q --junitxml=backend-tests.xml server
+
       - name: Configurar Java 17
         uses: actions/setup-java@v4
         with:
@@ -326,27 +333,57 @@ jobs:
 
       - name: Compilar APK de teste
         working-directory: android-app
-        run: gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug
+        run: gradle --no-daemon :app:testBaseDebugUnitTest :app:testIaDebugUnitTest :app:assembleBaseDebug :app:assembleIaDebug
 
-      - name: Publicar relatórios de testes Kotlin
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: DEV-V014-TESTES
-          path: android-app/app/build/test-results/testDebugUnitTest/*.xml
-          if-no-files-found: warn
+      - name: Verificar assinatura, integridade e permissões
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          cp android-app/app/build/outputs/apk/base/debug/app-base-debug.apk artifacts/MLBB-Base-0.17.0-debug.apk
+          cp android-app/app/build/outputs/apk/ia/debug/app-ia-debug.apk artifacts/MLBB-IA-0.17.0-debug.apk
+          signer="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          aapt="$ANDROID_HOME/build-tools/35.0.0/aapt"
+          for apk in artifacts/*.apk; do
+            unzip -tq "$apk"
+            "$signer" verify --verbose --print-certs "$apk" | tee "${apk%.apk}-assinatura.txt"
+            "$aapt" dump badging "$apk" > "${apk%.apk}-manifesto.txt"
+          done
+          ! "$aapt" dump permissions artifacts/MLBB-Base-0.17.0-debug.apk | grep -F android.permission.INTERNET
+          "$aapt" dump permissions artifacts/MLBB-IA-0.17.0-debug.apk | grep -F android.permission.INTERNET
+          cd artifacts
+          sha256sum ./*.apk > SHA256SUMS.txt
 
-      - name: Publicar somente auditoria de desenvolvimento
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: DEV-V014-DATA-AUDIT
-          path: development-data-audit.json
-          if-no-files-found: warn
-
-      - name: Disponibilizar APK experimental solicitado para teste
+      - name: Disponibilizar APK Base e APK IA
         uses: actions/upload-artifact@v4
         with:
-          name: MLBB-V016-DEV-TEST-APK
-          path: android-app/app/build/outputs/apk/debug/app-debug.apk
+          name: MLBB-V0.17.0-APKs-debug
+          path: artifacts
           if-no-files-found: error
+
+      - name: Disponibilizar fontes completas
+        uses: actions/upload-artifact@v4
+        with:
+          name: MLBB-V0.17.0-fontes
+          include-hidden-files: true
+          path: |
+            android-app/
+            server/
+            tools/
+            updates/v0_17/
+            *.md
+            !android-app/.gradle/**
+            !android-app/app/build/**
+            !android-app/build/**
+            !server/**/__pycache__/**
+          if-no-files-found: error
+
+      - name: Disponibilizar evidências automatizadas
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: MLBB-V0.17.0-testes
+          path: |
+            backend-tests.xml
+            android-app/app/build/test-results/**/*.xml
+            development-data-audit.json
+          if-no-files-found: warn
