@@ -1,0 +1,768 @@
+V	2026-11-23	d0d96e8ecdd62553bfee83a7f75f8dbac4ad86c0
+H	Aamon	aamon	Assassin	Jungle	Magic	Melee	Chase|Magic Damage	hp1=2455|hp15=4583|hp_regen1=8|mana1=500|mana15=1900|physical_atk1=115|physical_atk15=255|physical_def1=19|physical_def15=66|magic_def1=15|magic_def15=38|movement_spd=250	7	3
+S	Aamon	Invisible Armor			magic damage|basic attack|lost hp|cooldown	(+15% Total Magic Power)|(+3% of Aamon's Lost HP)|(+100% Total Physical Attack)|(+65% Total Magic Power)
+S	Aamon	Soul Shards	7	40	magic damage|basic attack	(+15% Total Magic Power)|(+60% Total Magic Power)
+S	Aamon	Slayer Shards	12.5	50	slow|magic damage	(+50% Total Magic Power)
+S	Aamon	Endless Shards	50	150	slow|magic damage|lost hp	(+10% Total Magic Power)|(+20% Total Magic Power)
+H	Akai	akai	Tank	Roam	Physical	Melee	Guard|Crowd Control	hp1=2660|hp15=6020|hp_regen1=8.4|mana1=500|mana15=1900|physical_atk1=115|physical_atk15=194|physical_def1=24|physical_def15=76|magic_def1=15|magic_def15=71|movement_spd=260|basic_atk_range=2.1	3	9
+S	Akai	Tai Chi			shield|physical damage|basic attack|max hp	(+5% Max HP)|(+6% Max HP)
+S	Akai	Headbutt	11	50	knock|physical damage	(+50% Total Physical Attack)
+S	Akai	Body Slam	7	50	slow|physical damage|max hp	(+6% Max HP)
+S	Akai	Heavy Spin	55	120	slow|knock|suppress|physical damage|immunity	(+50% Total Physical Attack)
+H	Aldous	aldous	Fighter	Exp	Physical	Melee	Burst|Support	hp1=2490|hp15=5150|hp_regen1=9.8|mana1=500|mana15=1900|physical_atk1=129|physical_atk15=279|physical_def1=21|physical_def15=83|magic_def1=15|magic_def15=50|movement_spd=260|basic_atk_range=1.4	3	7
+S	Aldous	Contract: Transform	5		shield|basic attack	
+S	Aldous	Contract: Soul Steal	4	45	physical damage|basic attack	(+100% Total Physical Attack)
+S	Aldous	Contract: Explosion	9.5	80	stun|physical damage|damage reduction	(+20% Total Physical Attack)|(+40% Total Physical Attack)
+S	Aldous	Contract: Chase Fate	60	150	knock|dash|physical damage	(+ 8% target's HP)
+H	Alice	alice	Tank|Mage	Exp|Jungle	Magic	Melee	Charge|Regen	hp1=2452|hp15=5000|hp_regen1=7.2|mana1=0|mana15=2100|physical_atk1=114|physical_atk15=191|physical_def1=25|physical_def15=80|magic_def1=15|magic_def15=50|movement_spd=240|basic_atk_range=3	5	5
+S	Alice	Crimson Blood Banquet			magic damage|max hp	(+30% Total Magic Power)|(+ 0.5% - 2.5% target's HP, scaling with level)|(+3% Extra Max HP)
+S	Alice	Crimson Gleam	12		blink|magic damage	(+50% Total Magic Power)
+S	Alice	Doom Waltz	4		slow|magic damage	(+130% Total Magic Power)
+S	Alice	Throne of Ruin	60		slow|immobil|magic damage|max hp|damage reduction|immunity	(+200% Total Magic Power)|(+20% Extra Max HP)
+H	Alpha	alpha	Fighter	Jungle|Exp	Physical	Melee	Charge|Damage	hp1=2468|hp15=5744|hp_regen1=7.8|mana1=500|mana15=1900|physical_atk1=121|physical_atk15=238|physical_def1=25|physical_def15=86|magic_def1=15|magic_def15=50|movement_spd=260	4	6
+S	Alpha	Beta, Advance!			slow|true damage	(+50% Total Physical Attack)
+S	Alpha	Rotary Impact	4	50	slow|true damage|physical damage	(+90% Extra Physical Attack)|(+30% Extra Physical Attack)
+S	Alpha	Force Swing	6	45	heal|true damage|physical damage	(+100% Total Physical Attack)|(+40% Extra Physical Attack)|(healing decays by 40% for each additional enemy hit)|(+30% Total Physical Attack)
+S	Alpha	Spear of Alpha	20|18|16	70|80|90	stun|slow|knock|true damage|physical damage	(+20% Extra Physical Attack)|(+100% Extra Physical Attack)|(+30% Extra Physical Attack)
+H	Alucard	alucard	Fighter|Assassin	Jungle	Physical	Melee	Chase|Damage	hp1=2443|hp15=5593|hp_regen1=7.8|mana1=0|mana15=0|physical_atk1=123|physical_atk15=244|physical_def1=21|physical_def15=86|magic_def1=15|magic_def15=50|movement_spd=260|basic_atk_range=1.8	5	5
+S	Alucard	Pursuit			dash|physical damage|basic attack	(+125% Total Physical Attack)
+S	Alucard	Groundsplitter	8.5		slow|physical damage	(+85% Extra Physical Attack)
+S	Alucard	Whirling Smash	6		physical damage	(+120% Extra Physical Attack)
+S	Alucard	Fission Wave	40		physical damage|lifesteal|cooldown	(+200% Extra Physical Attack)
+H	Angela	angela	Support	Roam	Magic	Ranged	Guard|Support	hp1=2300|hp15=4206|hp_regen1=6.8|mana1=500|mana15=1900|physical_atk1=115|physical_atk15=216|physical_def1=15|physical_def15=69|magic_def1=15|magic_def15=50|movement_spd=240|basic_atk_range=4.9	2	3
+S	Angela	Smart Heart				(up to 20%)
+S	Angela	Love Waves	2	60	slow|magic damage|cooldown	(+80% Total Magic Power)|(+75% Total Magic Power)
+S	Angela	Puppet-on-a-String	13	90	slow|immobil|magic damage	(+40% Total Magic Power)|(+60% Total Magic Power)
+S	Angela	Heartguard	60	100	shield	(+150% Total Magic Power)
+H	Argus	argus	Fighter	Exp	Physical	Melee	Charge|Burst	hp1=2600|hp15=5372|hp_regen1=8|mana1=0|mana15=0|physical_atk1=120|physical_atk15=232|physical_def1=21|physical_def15=78|magic_def1=15|magic_def15=50|movement_spd=260|basic_atk_range=1.9	6	8
+S	Argus	Warmonger			physical damage|critical	(+25% Total Physical Attack)
+S	Argus	Demonic Grip	12		stun|slow|dash|physical damage	(+60% Extra Physical Attack)|(+100% Extra Physical Attack)
+S	Argus	Meteoric Sword	8		stun|physical damage|basic attack|attack speed	(+100% Total Physical Attack)
+S	Argus	Eternal Evil	45		physical damage|cooldown|immunity	(+50% Total Physical Attack)
+H	Arlott	arlott	Fighter|Assassin	Exp	Physical	Melee	Charge|Burst	hp1=2450|hp15=5250|hp_regen1=8|mana1=0|mana15=0|physical_atk1=120|physical_atk15=260|physical_def1=21|physical_def15=82|magic_def1=15|magic_def15=50|movement_spd=260|basic_atk_range=2	6	6
+S	Arlott	Demon Gaze				
+S	Arlott	Dauntless Strike	8		stun|physical damage	(+60% Total Physical Attack)
+S	Arlott	Vengeance	10		physical damage|cooldown	(+60% Total Physical Attack)|(only restores 50% of that amount when used on a non-hero unit)
+S	Arlott	Final Slash	24	100|120|140	knock|suppress|physical damage	(+80% Total Physical Attack)
+H	Atlas	atlas	Tank	Roam	Magic	Melee	Crowd Control|Initiator	hp1=2800|hp15=6720|hp_regen1=8.4|mana1=500|mana15=1900|physical_atk1=135|physical_atk15=259|physical_def1=25|physical_def15=74|magic_def1=15|magic_def15=38|movement_spd=240	1	8
+S	Atlas	Frigid Breath			max hp	(+0.5% Extra Max HP)
+S	Atlas	Annihilate	7	60	magic damage	(+100% Total Magic Power)
+S	Atlas	Perfect Match	0	75	stun|slow|suppress|magic damage|immunity	(+80% Total Magic Power)
+S	Atlas	Fatal Links	55	130	stun|slow|suppress|magic damage	(+75% Total Magic Power)|(+180% Total Magic Power)
+H	Aulus	aulus	Fighter	Jungle|Exp	Physical	Melee	Damage|Charge	hp1=2500|hp15=5440|hp_regen1=10.2|mana1=0|physical_atk1=90|physical_atk15=202|physical_def1=20|physical_def15=83|magic_def1=15|magic_def15=50|movement_spd=250|basic_atk_range=1.9 (Default) / 2.4 (At max Fighting Spirit stacks)	6	6
+S	Aulus	Fighting Spirit			slow|physical damage|basic attack|attack speed	(+75% Total Physical Attack)|(+20% Total Physical Attack)
+S	Aulus	Aulus, Charge!	15		slow|immunity	
+S	Aulus	The Power of Axe	10		stun|dash|physical damage	(+100% Total Physical Attack)
+S	Aulus	Cleaving Axe	50		physical damage|damage reduction	(+60% Total Physical Attack)|(+180% Total Physical Attack)
+H	Aurora	aurora	Mage	Mid	Magic	Ranged	Crowd Control|Poke	hp1=2380|hp15=4496|hp_regen1=6.8|mana1=500|mana15=1900|physical_atk1=110|physical_atk15=225|physical_def1=17|physical_def15=73|magic_def1=15|magic_def15=50|movement_spd=250|basic_atk_range=4.7	7	4
+S	Aurora	Pride of Ice			cooldown	
+S	Aurora	Hailstone Blast	5	60	slow|magic damage	(+90% Total Magic Power)|(+10% Total Magic Power)
+S	Aurora	Frosty Breeze	10	75	magic damage	(+75% Total Magic Power)
+S	Aurora	Frigid Glacier	50	140	slow|magic damage	(+40% Total Magic Power)|(+150% Total Magic Power)
+H	Badang	badang	Fighter	Roam|Exp	Physical	Melee	Charge|Burst	hp1=2530|hp15=5610|hp_regen1=8|mana1=0|physical_atk1=111|physical_atk15=244|physical_def1=23|physical_def15=87|magic_def1=15|magic_def15=50|movement_spd=255|basic_atk_range=1.8	7	4
+S	Badang	Chivalry Fist			stun|knock|physical damage|basic attack	(+30% Total Physical Attack)
+S	Badang	Fist Wind	2		slow|knock|physical damage	(+90% Total Physical Attack)|(+60% Total Physical Attack)
+S	Badang	Fist Break	11		knock|shield|dash|physical damage	(+50% Total Physical Attack)|(+150% Total Physical Attack)|(+30% Total Physical Attack)
+S	Badang	Fist Crack	45		physical damage	(+54% Total Physical Attack)|(+27% Total Physical Attack)
+H	Balmond	balmond	Fighter	Jungle|Exp	Physical	Melee	Damage|Regen	hp1=2558|hp15=6212|hp_regen1=9.4|mana1=0|mana15=0|physical_atk1=119|physical_atk15=237|physical_def1=25|physical_def15=90|magic_def1=15|magic_def15=50|movement_spd=260|basic_atk_range=1.8	3	8
+S	Balmond	Bloodthirst				
+S	Balmond	Soul Lock	8		slow|knock|physical damage	(+60% Total Physical Attack)
+S	Balmond	Cyclone Sweep	6		physical damage|max hp	(+1.3% Max HP)|(+25% Total Physical Attack)|(up to 40%)
+S	Balmond	Lethal Counter	34		suppress|true damage|lost hp	(+70% Total Physical Attack)|(+ 30% of the target's lost HP)
+H	Bane	bane	Fighter|Mage	Jungle|Exp	Mixed	Melee	Push|Burst	hp1=2381|hp15=5811|hp_regen1=8.4|mana1=500|mana15=1900|physical_atk1=117|physical_atk15=269|physical_def1=23|physical_def15=84|magic_def1=15|magic_def15=50|movement_spd=260|basic_atk_range=1.8  / 3 (Tidal Energy)	6	5
+S	Bane	Shark Bite			physical damage|basic attack|max hp	(+95% Total Physical Attack)
+S	Bane	Crab Claw Cannon	8	30	slow|physical damage|cooldown	(+160% Total Physical Attack)|(+10% Total Magic Power)
+S	Bane	Sea Ink	7.5	50	magic damage|cooldown	(+150% Total Magic Power)|(+1.5% Total Magic Power)|(+130% Total Magic Power)|(up to 200% with charging time)
+S	Bane	Deadly Catch	40	120	slow|knock|magic damage	(+80% Total Physical Attack)|(+150% Total Magic Power)
+H	Barats	barats	Tank|Fighter	Exp	Physical	Melee	Damage|Crowd Control	hp1=2450|hp15=5865|hp_regen1=8.8|mana1=500|mana15=1900|physical_atk1=135|physical_atk15=207|physical_def1=23|physical_def15=85|magic_def1=15|magic_def15=50|movement_spd=268|basic_atk_range=1.7	3	10
+S	Barats	Big Guy			slow|physical damage|basic attack|max hp	(+140% Total Physical Attack)|(+3.5% Max HP)
+S	Barats	So-Called Teamwork	7	25	physical damage|max hp	(+7% Max HP)|(+180% Total Physical Attack)|(only 50% damage to Creeps)
+S	Barats	Missile "Expert"	11	70	slow|physical damage	(+75% Total Physical Attack)
+S	Barats	Detona's Welcome	50	100	stun|suppress|physical damage|max hp|cooldown	(+70% Total Physical Attack)|(+1.2% Max HP)|(+105% Total Physical Attack)|(+5% Max HP)
+H	Baxia	baxia	Tank	Jungle|Roam	Magic	Melee	Support|Damage	hp1=2660|hp15=5362|hp_regen1=8.4|mana1=500|mana15=1900|physical_atk1=125|physical_atk15=204|physical_def1=23|physical_def15=72|magic_def1=15|magic_def15=38|movement_spd=240	3	10
+S	Baxia	Baxia Mark			shield	
+S	Baxia	Baxia-Shield Unity	18	100	stun|knock|shield|magic damage	(+60% Total Magic Power)|(+75% Total Magic Power)
+S	Baxia	Shield of Spirit	7	20	slow|shield|magic damage|cooldown	(+100% Total Magic Power)|(+ 5% target's HP)
+S	Baxia	Tortoise’s Puissance	40	150	slow|shield|magic damage|damage reduction	(+30% Total Magic Power)
+H	Beatrix	beatrix	Marksman	Gold	Physical	Ranged	Finisher|Damage	hp1=2380|hp15=4620|hp_regen1=7.2|mana1=0|mana15=0|physical_atk1=115|physical_atk15=269|physical_def1=18|physical_def15=62|magic_def1=15|magic_def15=38|movement_spd=245	8	3
+S	Beatrix	Mechanical Genius			physical damage|basic attack|critical	(+-535% of 360% Total Physical Attack)|(this shot can be dodged, or blocked by others. Deals 50% damage to creeps)
+S	Beatrix	Masterful Gunner	12		basic attack	
+S	Beatrix	Tactical Reposition	8|7.6|7.2|6.8|6.4|6			
+S	Beatrix	Renner's Apathy	24|21|18		physical damage|cooldown	(+280% Total Physical Attack)
+H	Belerick	belerick	Tank	Roam	Magic	Melee	Crowd Control|Regen	hp1=2460|hp15=5820|hp_regen1=8.4|mana1=500|mana15=1900|physical_atk1=110|physical_atk15=208|physical_def1=15|physical_def15=54|magic_def1=15|magic_def15=71|movement_spd=250|basic_atk_range=1.8	4	9
+S	Belerick	Deadly Thorns			magic damage	(+ 1.8% of his HP)
+S	Belerick	Ancient Seed	8	60	slow|magic damage	(+50% Total Magic Power)
+S	Belerick	Nature's Strike	14	60	slow|magic damage|basic attack|lost hp|cooldown	(+60% Total Magic Power)
+S	Belerick	Wrath of Dryad	50	150	slow|magic damage	(+30% Total Magic Power)
+H	Benedetta	benedetta	Assassin|Fighter	Exp	Physical	Melee	Chase|Burst	hp1=2410|hp15=4692|hp_regen1=6.6|mana1=500|mana15=1900|physical_atk1=113|physical_atk15=256|physical_def1=18|physical_def15=73|magic_def1=15|magic_def15=50|movement_spd=255|basic_atk_range=1.9	5	6
+S	Benedetta	Elapsed Daytime			dash|physical damage|basic attack	(+215% Total Physical Attack)|(counts as Skill Damage and is reduced to 50% on Minions and Creeps)
+S	Benedetta	Phantom Slash	10	55	slow|dash|physical damage	(+75% Total Physical Attack)|(+100% Total Physical Attack)|(If the target is hit by her shadow, damage caused by Benedetta herself will increase to 200%.)
+S	Benedetta	An Eye for An Eye	15	100	stun|physical damage|immunity	(+80% Total Physical Attack)
+S	Benedetta	Alecto: Final Blow	45	110	slow|dash|physical damage|untargetable	(+1105% Extra Physical Attack)
+H	Brody	brody	Marksman	Gold	Physical	Ranged	Burst|Finisher	hp1=2260|hp15=4500|hp_regen1=7.2|mana1=500|mana15=1900|physical_atk1=105|physical_atk15=301|physical_def1=16|physical_def15=62|magic_def1=15|magic_def15=38|movement_spd=250	7	4
+S	Brody	Abyss Corrosion			physical damage|basic attack|attack speed|critical	(+140% Total Physical Attack)
+S	Brody	Abyss Impact	4	50	slow|physical damage	(+170% Total Physical Attack)|(capped at 45% slow and 4 stacks)
+S	Brody	Corrosive Strike	8	90	stun|dash|physical damage	(+70% Total Physical Attack)
+S	Brody	Torn-Apart Memory	32	120	physical damage|lost hp	(+165% Extra Physical Attack)|(+72% Extra Physical Attack)|(+ 4% of the target's lost HP)
+H	Bruno	bruno	Marksman	Gold	Physical	Ranged	Finisher|Burst	hp1=2320|hp15=4560|hp_regen1=6|mana1=500|mana15=1900|physical_atk1=145|physical_atk15=348|physical_def1=17|physical_def15=77|magic_def1=15|magic_def15=50|movement_spd=245|basic_atk_range=4.8	6	2
+S	Bruno	Mecha Legs			attack speed	
+S	Bruno	Volley Shot	10	50	slow|physical damage|basic attack|cooldown	(+100% Total Physical Attack)
+S	Bruno	Slide	9	90	stun|dash	
+S	Bruno	Worldie	38	140	stun|slow|knock|physical damage	(+80% Total Physical Attack)|(+40% Total Physical Attack)
+H	Carmilla	carmilla	Support|Tank	Roam	Magic	Melee	Crowd Control|Damage	hp1=2419|hp15=5597|hp_regen1=7.8|mana1=500|mana15=1900|physical_atk1=126|physical_atk15=255|physical_def1=25|physical_def15=75|magic_def1=15|magic_def15=38|movement_spd=255	2	9
+S	Carmilla	Vampire Pact				
+S	Carmilla	Crimson Flower	9	50	slow|magic damage	(+30% Total Magic Power)|(the slow effect stacks up to 30%)|(+21% Total Magic Power)|(only recovers 30% of that amount when hitting minions)
+S	Carmilla	Bloodbath	11	85	stun|magic damage	(+120% Total Magic Power)|(up to 100%)
+S	Carmilla	Curse of Blood	60	150	slow|immobil|magic damage	(+130% Total Magic Power)
+H	Cecilion	cecilion	Mage	Mid	Magic	Ranged	Poke|Burst	hp1=2380|hp15=4375|hp_regen1=6.8|mana1=700|mana15=2660|physical_atk1=105|physical_atk15=171|physical_def1=17|physical_def15=61|magic_def1=15|magic_def15=38|movement_spd=250	10	4
+S	Cecilion	Overflowing	1		cooldown	
+S	Cecilion	Bat Impact	1.5	75	magic damage	(+70% Total Magic Power)|(+7% Total Mana)|(+140% Total Magic Power)|(+14% Total Mana)
+S	Cecilion	Sanguine Claws	12	95	immobil|magic damage	(+45% Total Magic Power)|(+1.2% Total Mana)
+S	Cecilion	Bats Feast	44	150	slow|magic damage|lost hp|immunity	(+8% Total Magic Power)|(+0.3% Total Mana)|(up to 30%total)
+H	Chang'e	chang-e	Mage	Mid	Magic	Ranged	Poke|Burst	hp1=2320|hp15=4182|hp_regen1=6.8|mana1=500|mana15=1900|physical_atk1=115|physical_atk15=222|physical_def1=17|physical_def15=56|magic_def1=15|magic_def15=38|movement_spd=240	8	4
+S	Chang'e	Trouble Maker				(up to 20%)
+S	Chang'e	Starmoon Shockwave	7	60	slow|magic damage	(+130% Total Magic Power)|(up to 20%)
+S	Chang'e	Crescent Moon	12	60	shield|magic damage|basic attack|cooldown	(+150% Total Magic Power)|(+35% Total Magic Power)
+S	Chang'e	Meteor Shower	24	120	magic damage	(+21% Total Magic Power)
+H	Chip	chip	Support|Tank	Roam	Magic	Hybrid	Support|Crowd Control	hp1=2600|hp15=5750|hp_regen1=8.4|mana1=500|mana15=1900|physical_atk1=112|physical_atk15=207|physical_def1=20|physical_def15=79|magic_def1=15|magic_def15=50|movement_spd=260|basic_atk_range=1.8	2	8
+S	Chip	Snack Time!			lost hp	(+ 45% of his lost HP)
+S	Chip	Crash Course	5.5	40	stun|shield|magic damage|basic attack	(+60% Total Magic Power)|(+30% Total Magic Power)
+S	Chip	Overtime	13	75	knock|magic damage|basic attack	(+30% Total Magic Power)
+S	Chip	Shortcut	70	110	slow|immobil|shield|magic damage|basic attack	(+60% Total Magic Power)
+H	Chou	chou	Fighter	Exp|Roam	Physical	Melee	Chase|Control	hp1=2530|hp15=5568|hp_regen1=7.8|mana1=0|mana15=0|physical_atk1=121|physical_atk15=262|physical_def1=23|physical_def15=87|magic_def1=15|magic_def15=50|movement_spd=260|basic_atk_range=1.4	3	5
+S	Chou	Only Fast			slow|basic attack	
+S	Chou	Jeet Kune Do	9.5		knock|physical damage|cooldown	(+70% Total Physical Attack)
+S	Chou	Shunpo	5		shield|immunity	(+200% Extra Physical Attack)
+S	Chou	The Way of Dragon	36		knock|physical damage	(+200% Extra Physical Attack)|(+240% Extra Physical Attack)
+H	Cici	cici	Fighter	Exp	Physical	Melee	Damage|Regen	hp1=2431|hp15=5161|hp_regen1=6|mana1=0|mana15=0|physical_atk1=129|physical_atk15=226|physical_def1=23|physical_def15=79|magic_def1=15|magic_def15=50|movement_spd=250|basic_atk_range=3.8	6	5
+S	Cici	Performer's Delight			spell vamp	
+S	Cici	Yo-Yo Blitz	6.5		physical damage	(+1.2% Extra Physical Attack)
+S	Cici	Buoyant Bounce	9.5		physical damage	(+40% Total Physical Attack)
+S	Cici	Curtain Call	40		slow|physical damage	(+10% Total Physical Attack)
+H	Claude	claude	Marksman	Gold	Physical	Ranged	Burst|Chase	hp1=2380|hp15=4165|hp_regen1=8|mana1=500|physical_atk1=100|physical_atk15=198|physical_def1=18|physical_def15=60|magic_def1=15|magic_def15=38|movement_spd=240	6	3
+S	Claude	Battle Side-by-side			physical damage|basic attack	(+25% Total Physical Attack)
+S	Claude	Art of Thievery	5	35	physical damage|attack speed	(+40% Total Physical Attack)
+S	Claude	Battle Mirror Image	13	90	physical damage|basic attack	(+25% Total Physical Attack)
+S	Claude	Blazing Duet	50	100	shield|physical damage|basic attack	(+40% Total Physical Attack)|(+3% Total Physical Attack)
+H	Clint	clint	Marksman	Gold	Physical	Ranged	Finisher|Burst	hp1=2260|hp15=4290|hp_regen1=7.2|mana1=500|mana15=1900|physical_atk1=120|physical_atk15=288|physical_def1=16|physical_def15=76|magic_def1=15|magic_def15=50|movement_spd=245|basic_atk_range=4.8	7	3
+S	Clint	Double Shot			physical damage|basic attack	(+100% Total Physical Attack)
+S	Clint	Quick Draw	8	50	physical damage	(+85% Total Physical Attack)
+S	Clint	Trapping Recoil	10	80	immobil|physical damage|cooldown	(+30% Total Physical Attack)|(+150% Total Magic Power)
+S	Clint	Grenade Bombardment	1.5	50	slow|physical damage	(+100% Total Physical Attack)
+H	Cyclops	cyclops	Mage	Mid	Magic	Ranged	Poke|Control	hp1=2440|hp15=4837|hp_regen1=7.6|mana1=500|mana15=1900|physical_atk1=112|physical_atk15=193|physical_def1=18|physical_def15=76|magic_def1=15|magic_def15=50|movement_spd=240|basic_atk_range=4.7	10	3
+S	Cyclops	Starlit Hourglass			cooldown	
+S	Cyclops	Stardust Shock	7.5	50	magic damage	(+60% Total Magic Power)
+S	Cyclops	Planets Attack	14	60	magic damage	(+65% Total Magic Power)
+S	Cyclops	Star Power Lockdown	26	60	immobil|magic damage	(+120% Total Magic Power)
+H	Diggie	diggie	Support	Roam	Magic	Ranged	Guard|Poke	hp1=2320|hp15=4280|hp_regen1=7.2|mana1=500|mana15=1900|physical_atk1=115|physical_atk15=216|physical_def1=15|physical_def15=71|magic_def1=15|magic_def15=50|movement_spd=250|basic_atk_range=4.5	4	4
+S	Diggie	Young Again			untargetable	
+S	Diggie	Auto Alarm Bomb	8	70	slow|magic damage	(+100% Total Magic Power)
+S	Diggie	Reverse Time	15	90	slow|magic damage	(+100% Total Magic Power)
+S	Diggie	Time Journey	76	130	shield|immunity	(+300% Total Magic Power)
+H	Dyrroth	dyrroth	Fighter	Exp|Jungle	Physical	Melee	Charge|Burst	hp1=2580|hp15=5590|hp_regen1=8.2|mana1=0|mana15=0|physical_atk1=117|physical_atk15=266|physical_def1=22|physical_def15=75|magic_def1=15|magic_def15=38|movement_spd=265|basic_atk_range=1.7, 2 (circle strike)	5	5
+S	Dyrroth	Wrath of the Abyss			physical damage|basic attack	(+160% Total Physical Attack)
+S	Dyrroth	Burst Strike	6		slow|physical damage	(+60% Total Physical Attack)|(The damage decays against the same target and decreases to only 75% on minions.)
+S	Dyrroth	Spectre Step	6		slow|knock|dash|physical damage	(+60% Extra Physical Attack)|(+120% Extra Physical Attack)
+S	Dyrroth	Abysm Strike	36		slow|suppress|physical damage|lost hp	(+250% Extra Physical Attack)|(+ 25% of the target's lost HP)
+H	Edith	edith	Tank|Marksman	Exp	Mixed	Hybrid	Control|Burst	hp1=2440|hp15=5380|hp_regen1=9|mana1=0|mana15=0|physical_atk1=110|physical_atk15=190|physical_def1=17|physical_def15=71|magic_def1=15|magic_def15=50|movement_spd=255|basic_atk_range=1.8 (Phylax) / 4.5 (Edith)	3	7
+S	Edith	Overload			magic damage|basic attack|max hp	(+30% Total Magic Power)|(+4-8% of target's Max HP)
+S	Edith	Earth Shatter	8.5		knock|suppress|physical damage|max hp	(+10% Max HP)|(deals 120% damage to minions)
+S	Edith	Onward	10		physical damage|max hp	(+3% Max HP)|(+5% Max HP)
+S	Edith	Primal Wrath	40		knock|shield|magic damage|basic attack|attack speed|lifesteal|max hp|damage reduction	(+75% Total Physical Attack)|(+25% Total Magic Power)|(+5% Max HP)|(+20% Max HP)
+H	Esmeralda	esmeralda	Tank|Mage	Exp	Mixed	Melee	Regen|Mixed Damage	hp1=2660|hp15=5341|hp_regen1=7.2|mana1=500|mana15=1900|physical_atk1=114|physical_atk15=191|physical_def1=25|physical_def15=79|magic_def1=15|magic_def15=45|movement_spd=240	3	9
+S	Esmeralda	Starmoon Casket			shield|magic damage|physical damage|basic attack	(+100% Total Physical Attack)|(+75% Total Magic Power)
+S	Esmeralda	Frostmoon Shield	8	40	shield	(+150% Total Magic Power)
+S	Esmeralda	Stardust Dance	4.5	35	shield|magic damage|physical damage|cooldown	(+60% Total Physical Attack)|(+120% Total Magic Power)
+S	Esmeralda	Falling Starmoon	30	100	immobil|blink|magic damage|physical damage	(+90% Total Physical Attack)|(+140% Total Magic Power)
+H	Estes	estes	Support	Roam	Magic	Ranged	Regen|Guard	hp1=2260|hp15=4150|hp_regen1=7.2|mana1=500|mana15=1900|physical_atk1=120|physical_atk15=221|physical_def1=13|physical_def15=65|magic_def1=15|magic_def15=50|movement_spd=240|basic_atk_range=4.7	1	7
+S	Estes	Scripture of the Moon Elf			slow|magic damage|basic attack	(+100% Total Physical Attack)|(+150% Total Magic Power)|(+50% Total Physical Attack)|(+75% Total Magic Power)
+S	Estes	Moonlight Immersion	11	60	slow	(+110% Total Magic Power)|(+10% Total Magic Power)|(+90% Total Magic Power)
+S	Estes	Domain of Moon Goddess	12	80	slow|magic damage	(+70% Total Magic Power)
+S	Estes	Blessing of Moon Goddess	55	140	heal	(+225% Total Magic Power)
+H	Eudora	eudora	Mage	Mid	Magic	Ranged	Control|Burst	hp1=2440|hp15=4808|hp_regen1=7.6|mana1=500|mana15=1900|physical_atk1=112|physical_atk15=193|physical_def1=18|physical_def15=76|magic_def1=15|magic_def15=50|movement_spd=250|basic_atk_range=4.5	8	1
+S	Eudora	Superconductor				
+S	Eudora	Forked Lightning	5	40	magic damage|cooldown	(+100% Total Magic Power)|(increased to 200% against minions)|(+4% Total Magic Power)
+S	Eudora	Ball Lightning	11	80	stun|magic damage	(+50% Total Magic Power)
+S	Eudora	Thunder’s Wrath	32	130	magic damage	(+145% Total Magic Power)|(+90% Total Magic Power)|(+100% Total Magic Power)
+H	Fanny	fanny	Assassin	Jungle	Physical	Melee	Chase|Finisher	hp1=2267|hp15=4241|hp_regen1=6.6|physical_atk1=126|physical_atk15=269|physical_def1=16|physical_def15=68|magic_def1=15|magic_def15=50|movement_spd=265|basic_atk_range=1.8	7	6
+S	Fanny	Air Superiority				
+S	Fanny	Tornado Strike	3.5	12	physical damage	(+85% Total Physical Attack)
+S	Fanny	Steel Cable	0	19		
+S	Fanny	Cut Throat	35	12	physical damage	(+200% Extra Physical Attack)
+H	Faramis	faramis	Support|Mage	Mid|Roam	Magic	Ranged	Guard|Charge	hp1=2500|hp15=4859|hp_regen1=6.8|mana1=500|mana15=1900|physical_atk1=118|physical_atk15=191|physical_def1=20|physical_def15=66|magic_def1=15|magic_def15=38|movement_spd=240	6	4
+S	Faramis	Vicious Retrieval				(+50% Total Magic Power)|(up to 90%)
+S	Faramis	Shadow Stampede	15	85	magic damage|cooldown	(+60% Total Magic Power)
+S	Faramis	Ghost Bursters	6	60	magic damage	(+144% Total Magic Power)|(+86% Total Magic Power)
+S	Faramis	Nether Realm	90	150		(+ 10 (+5% Total Magic Power)
+H	Floryn	floryn	Support	Roam	Magic	Ranged	Poke|Guard	hp1=2280|hp15=4135|hp_regen1=7.6|mana1=500|mana15=1900|physical_atk1=119|physical_atk15=222|physical_def1=12|physical_def15=68|magic_def1=15|magic_def15=50|movement_spd=240|basic_atk_range=4.5	1	6
+S	Floryn	Dew			heal|shield|cooldown	(+70% Total Magic Power)
+S	Floryn	Sow	9	75	heal|magic damage	(+100% Total Magic Power)|(+90% Total Magic Power)
+S	Floryn	Sprout	13	90	stun|magic damage	(+90% Total Magic Power)
+S	Floryn	Bloom	70	150	shield	(+100% Total Magic Power)
+H	Franco	franco	Tank	Roam	Physical	Melee	Initiator|Control	hp1=2600|hp15=6534|hp_regen1=9.2|mana1=500|mana15=1900|physical_atk1=116|physical_atk15=217|physical_def1=25|physical_def15=93|magic_def1=15|magic_def15=50|movement_spd=260|basic_atk_range=1.8	1	8
+S	Franco	Wasteland Force				
+S	Franco	Iron Hook	15	135	physical damage	(+100% Total Physical Attack)
+S	Franco	Fury Shock	7	40	slow|physical damage	(+ 4% of his HP)
+S	Franco	Bloody Hunt	62	110	suppress|physical damage	(+70% Total Physical Attack)
+H	Fredrinn	fredrinn	Fighter|Tank	Jungle	Physical	Melee	Damage|Chase	hp1=2500|hp15=5860|hp_regen1=6.4|mana1=0|mana15=0|physical_atk1=125|physical_atk15=239|physical_def1=20|physical_def15=76|magic_def1=15|magic_def15=38|movement_spd=260	5	8
+S	Fredrinn	Crystalline Armor				(10% for damage dealt to minions)
+S	Fredrinn	Piercing Strike	7.5		slow|physical damage|basic attack|max hp	(+7% Max HP)|(+120% Extra Physical Attack)|(+100% Total Physical Attack)
+S	Fredrinn	Brave Assault	7.5		knock|dash|physical damage|basic attack	(+80% Extra Physical Attack)
+S	Fredrinn	Energy Eruption			physical damage|cooldown	(+100% Extra Physical Attack)
+H	Freya	freya	Fighter	Exp|Jungle	Physical	Melee	Chase|Damage	hp1=2550|hp15=5560|hp_regen1=9.8|mana1=0|mana15=0|physical_atk1=120|physical_atk15=242|physical_def1=22|physical_def15=83|magic_def1=15|magic_def15=50|movement_spd=260|basic_atk_range=1.5 / 3.5 (Valkyrie State)	5	6
+S	Freya	Power of Einherjar			basic attack|attack speed	(+20% Total Physical Attack)
+S	Freya	Leap of Faith	8		knock|shield|physical damage	(+100% Total Physical Attack)|(+80% Extra Physical Attack)
+S	Freya	Valkyrie Slash	0.396		slow|physical damage|cooldown	(+50% Total Physical Attack)
+S	Freya	Valkyrie Descent	60		slow|physical damage|basic attack|immunity	(+75% Total Physical Attack)|(+70% Total Physical Attack)
+H	Gatotkaca	gatotkaca	Tank|Fighter	Roam|Exp	Magic	Melee	Crowd Control|Burst	hp1=2600|hp15=5540|hp_regen1=8.4|mana1=0|mana15=0|physical_atk1=128|physical_atk15=228|physical_def1=15|physical_def15=63|magic_def1=15|magic_def15=50|movement_spd=260|basic_atk_range=1.4	3	9
+S	Gatotkaca	Steel Bones			magic damage|physical damage|basic attack|lost hp	(+100% Total Physical Attack)|(+200% Total Magic Power)
+S	Gatotkaca	Blast Iron Fist	8		slow|magic damage	(+150% Total Magic Power)|(+20% Total Magic Power)
+S	Gatotkaca	Unbreakable	12		magic damage|cooldown	(+100% Total Magic Power)
+S	Gatotkaca	Avatar of the Guardian	54|50|46		knock|magic damage	(+300% Total Magic Power)
+H	Gloo	gloo	Tank	Roam|Exp	Magic	Melee	Regen|Control	hp1=2710|hp15=6070|hp_regen1=12.4|mana1=500|mana15=1900|physical_atk1=120|physical_atk15=210|physical_def1=18|physical_def15=65|magic_def1=15|magic_def15=50|movement_spd=245	3	10
+S	Gloo	Stick, Stick				
+S	Gloo	Slam, Slam	10	25	immobil|magic damage|max hp|cooldown	(+80% Total Magic Power)|(+11% Extra Max HP)
+S	Gloo	Spread, Spread	12	80	immobil|magic damage	(+80% Total Magic Power)|(+15% Total Magic Power)
+S	Gloo	Grab, Grab	50	150	magic damage|basic attack|max hp|cooldown	(+50% Total Magic Power)|(+6% Extra Max HP)
+H	Gord	gord	Mage	Mid	Magic	Ranged	Poke|Burst	hp1=2380|hp15=4830|hp_regen1=6.4|mana1=500|mana15=1900|physical_atk1=110|physical_atk15=196|physical_def1=17|physical_def15=73|magic_def1=15|magic_def15=50|movement_spd=250|basic_atk_range=4.5	7	1
+S	Gord	Mystic Favor			slow|true damage	(+40% Total Magic Power)
+S	Gord	Mystic Projectile	8	80	stun|magic damage	(+65% Total Magic Power)
+S	Gord	Mystic Injunction	8	60	magic damage	(+10% Total Magic Power)
+S	Gord	Mystic Gush	44	150	magic damage	(+32% Total Magic Power)
+H	Granger	granger	Marksman	Gold	Physical	Ranged	Burst|Finisher	hp1=2260|hp15=4220|hp_regen1=5.4|mana1=0|mana15=0|physical_atk1=116|physical_atk15=326|physical_def1=15|physical_def15=71|magic_def1=15|magic_def15=50|movement_spd=240|basic_atk_range=4.5	7	3
+S	Granger	Capriccio			cooldown	
+S	Granger	Rhapsody	0.3		physical damage|cooldown	(+45% Total Physical Attack)
+S	Granger	Rondo	12		dash|cooldown	
+S	Granger	Death Sonata	0.6	250	slow|physical damage|cooldown	(+110% Total Physical Attack)
+H	Grock	grock	Tank|Fighter	Roam	Physical	Melee	Crowd Control|Initiator	hp1=2700|hp15=6060|hp_regen1=8.4|mana1=0|mana15=0|physical_atk1=135|physical_atk15=250|physical_def1=21|physical_def15=105|magic_def1=15|magic_def15=38|movement_spd=260	4	9
+S	Grock	Bastion of Stone			shield|physical damage|basic attack|cooldown	(+2% Total Physical Defense)
+S	Grock	Mighty Swing	8		knock|physical damage	(+100% Extra Physical Attack)|(+2% Total Physical Defense)
+S	Grock	Earthen Rampart	14		knock|physical damage	(+60% Extra Physical Attack)
+S	Grock	Tectonic Charge	55		knock|physical damage|cooldown|immunity	(+50% Total Physical Attack)|(+300% Total Physical Attack)
+H	Guinevere	guinevere	Fighter	Exp	Magic	Melee	Burst|Magic Damage	hp1=2350|hp15=5318|hp_regen1=7.8|mana1=0|mana15=0|physical_atk1=126|physical_atk15=255|physical_def1=18|physical_def15=81|magic_def1=15|magic_def15=50|movement_spd=260|basic_atk_range=1.8	6	4
+S	Guinevere	Super Magic			knock|magic damage|basic attack|lost hp	(+80% Total Physical Attack)|(+60% Total Magic Power)|(+100% Total Physical Attack)|(+90% Total Magic Power)|(+8% of Guinevere's Lost HP)
+S	Guinevere	Energy Wave	4		slow|magic damage|cooldown	(+125% Total Magic Power)
+S	Guinevere	Spatial Migration	17		knock|blink|magic damage	(+80% Total Magic Power)|(+50% Total Magic Power)|(+30% Total Magic Power)
+S	Guinevere	Violet Requiem	52		knock|magic damage|immunity	(+385% Total Magic Power)
+H	Gusion	gusion	Assassin	Jungle|Mid	Magic	Melee	Burst|Magic Damage	hp1=2419|hp15=4729|hp_regen1=7.8|mana1=500|mana15=1900|physical_atk1=119|physical_atk15=234|physical_def1=18|physical_def15=67|magic_def1=15|magic_def15=38|movement_spd=260	9	3
+S	Gusion	Dagger Specialist			basic attack	(+25% Total Magic Power)
+S	Gusion	Sword Spike	9	50	magic damage	(+50% Total Magic Power)|(+100% Total Magic Power)
+S	Gusion	Shadowblade Slaughter	9	60	slow|magic damage	(+40% Total Magic Power)|(when hit by multiple daggers, the slow effect can stack up to 30%)
+S	Gusion	Incandescence	24	100	dash|cooldown	
+H	Hanabi	hanabi	Marksman	Gold	Physical	Ranged	Finisher|Damage	hp1=2260|hp15=4052|hp_regen1=6|mana1=500|mana15=1900|physical_atk1=111|physical_atk15=251|physical_def1=17|physical_def15=74|magic_def1=15|magic_def15=50|movement_spd=245|basic_atk_range=4.8	7	2
+S	Hanabi	Ninjutsu: Petal Barrage			basic attack	
+S	Hanabi	Ninjutsu: Equinox	15	75	shield|attack speed	(+40% Total Physical Attack)|(only 10% of the damage dealt to non-hero units is added)
+S	Hanabi	Ninjutsu: Soul Scroll	8	50	physical damage|basic attack	(+80% Total Physical Attack)|(+100% Total Physical Attack)
+S	Hanabi	Forbidden Jutsu: Higanbana	40	120	immobil|physical damage	(+50% Total Physical Attack)
+H	Hanzo	hanzo	Assassin	Jungle	Physical	Melee	Burst|Poke	hp1=2440|hp15=4470|hp_regen1=7|mana1=0|mana15=0|physical_atk1=108|physical_atk15=268|physical_def1=17|physical_def15=73|magic_def1=15|magic_def15=50|movement_spd=260|basic_atk_range=1.8	8	7
+S	Hanzo	Ame no Habakiri			basic attack	
+S	Hanzo	Ninjutsu: Demon Feast	30|28|26|24|22|20		physical damage|cooldown	(+120% Extra Physical Attack)|(+80% Total Physical Attack)
+S	Hanzo	Ninjutsu: Dark Mist	10		slow|dash|physical damage|basic attack	(+45% Extra Physical Attack)
+S	Hanzo	Kinjutsu: Pinnacle Ninja	36		slow|attack speed|cooldown|untargetable	(+100% Extra Physical Attack)
+H	Harith	harith	Mage	Gold	Magic	Ranged	Chase|Damage	hp1=2260|hp15=4549|hp_regen1=7.2|mana1=500|mana15=1900|physical_atk1=115|physical_atk15=188|physical_def1=17|physical_def15=77|magic_def1=15|magic_def15=50|movement_spd=240|basic_atk_range=4.3	5	4
+S	Harith	Key Insight			lifesteal	
+S	Harith	Synchro Fission	5	50	magic damage	(+60% Total Magic Power)|(+180% Total Magic Power)
+S	Harith	Chrono Dash	9.3	50	slow|shield|dash|magic damage|basic attack|cooldown	(+120% Total Magic Power)|(+100% Total Physical Attack)|(+60% Total Magic Power)|(+100% Total Magic Power)
+S	Harith	Zaman Force	40	120	slow|dash|cooldown	
+H	Harley	harley	Assassin|Mage	Jungle|Mid	Magic	Ranged	Burst|Poke	hp1=2380|hp15=4235|hp_regen1=7.2|mana1=500|mana15=1900|physical_atk1=114|physical_atk15=201|physical_def1=19|physical_def15=72|magic_def1=15|magic_def15=50|movement_spd=240|basic_atk_range=4.5	9	3
+S	Harley	Magic Master			magic damage|basic attack|attack speed	(+50% Total Physical Attack)|(+60% Total Magic Power)
+S	Harley	Poker Trick	6	55	magic damage	(+25% Total Magic Power)
+S	Harley	Space Escape	9	75	blink	
+S	Harley	Deadly Magic	36	120	slow|magic damage	(+60% Total Magic Power)|(+50% Total Magic Power)
+H	Hayabusa	hayabusa	Assassin	Jungle	Physical	Melee	Chase|Burst	hp1=2270|hp15=4461|hp_regen1=7.4|mana1=100|physical_atk1=117|physical_atk15=251|physical_def1=17|physical_def15=75|magic_def1=15|magic_def15=50|movement_spd=260|basic_atk_range=1.8	5	4
+S	Hayabusa	Ninjutsu: Trace of Shadow				
+S	Hayabusa	Ninjutsu: Phantom Shuriken	4	30	slow|physical damage|spell vamp	(+75% Extra Physical Attack)|(only 50% less to creeps)
+S	Hayabusa	Ninjutsu: Quad Shadow	16	25	slow|dash|physical damage|cooldown	(+30% Extra Physical Attack)
+S	Hayabusa	Ougi: Shadow Kill	40		physical damage	(+30% Extra Physical Attack)|(+40% Extra Physical Attack)
+H	Helcurt	helcurt	Assassin	Jungle|Roam	Physical	Melee	Push|Burst	hp1=2440|hp15=4694|hp_regen1=7|mana1=0|mana15=1400|physical_atk1=121|physical_atk15=275|physical_def1=17|physical_def15=73|magic_def1=15|magic_def15=50|movement_spd=255|basic_atk_range=1.8	5	3
+S	Helcurt	Shadow of Styx			attack speed|cooldown	(+30% Total Physical Attack)
+S	Helcurt	Hidden Terror	15		blink|physical damage|cooldown	(+70% Total Physical Attack)
+S	Helcurt	Deadly Stinger	4		physical damage|basic attack	(+50% Extra Physical Attack)|(minions and creeps take only 70% of the damage)
+S	Helcurt	Dark Night Falls	60			
+H	Hilda	hilda	Fighter|Tank	Roam|Exp	Physical	Melee	Damage|Regen	hp1=2600|hp15=6170|hp_regen1=8.4|mana1=0|mana15=0|physical_atk1=123|physical_atk15=218|physical_def1=24|physical_def15=124|magic_def1=15|magic_def15=71|movement_spd=260|basic_atk_range=1.8 / 2.5 (Blessing of Wilderness)	4	9
+S	Hilda	Blessing of Wilderness	6		physical damage|basic attack|cooldown	(+130% Total Physical Attack)|(+100% Total Physical Attack)
+S	Hilda	Combat Ritual	10		shield	
+S	Hilda	Art of Hunting	7		knock|physical damage	(+90% Total Physical Attack)
+S	Hilda	Power of Wildness	32		stun|physical damage	(+250% Extra Physical Attack)
+H	Hirara	hirara	Assassin	Jungle	Physical	Melee	Chase|Finisher	hp1=2440|hp15=4750|hp_regen1=6.6|mana1=0|physical_atk1=125|physical_atk15=266|physical_def1=18|physical_def15=74|magic_def1=15|magic_def15=50|movement_spd=260|basic_atk_range=1.8	8	4
+S	Hirara	Twin Fans: Ukifune			cooldown	
+S	Hirara	Meisen-e	10		dash|physical damage	(+50% Extra Physical Attack)
+S	Hirara	Kaerazu	5		physical damage	(+42% Extra Physical Attack)
+S	Hirara	Twin Fans: Ukifune			cooldown	
+H	Hylos	hylos	Tank	Roam	Magic	Melee	Guard|Initiator	hp1=2700|hp15=6900|hp_regen1=18.4|mana1=500|mana15=1900|physical_atk1=105|physical_atk15=198|physical_def1=22|physical_def15=99|magic_def1=15|magic_def15=71|movement_spd=260	2	10
+S	Hylos	Thickened Blood				
+S	Hylos	Law and Order	12	80|90|100|110|120|130	stun|knock|magic damage|basic attack	(+80% Total Magic Power)
+S	Hylos	Ring of Punishment	1	30|40|60|90|120|150	slow|magic damage|attack speed	(+20% Total Magic Power)
+S	Hylos	Glorious Pathway	40	150|300|450	slow|immunity	
+H	Irithel	irithel	Marksman	Gold	Physical	Ranged	Finisher|Burst	hp1=2260|hp15=4500|hp_regen1=7|mana1=0|mana15=0|physical_atk1=125|physical_atk15=244|physical_def1=16|physical_def15=76|magic_def1=15|magic_def15=50|movement_spd=260|basic_atk_range=4.9	8	1
+S	Irithel	Jungle Heart			physical damage|basic attack	(+55% Total Physical Attack)|(inherits a portion [55%] of Attack Effects)
+S	Irithel	Strafe	10	0	physical damage	(+60% Total Physical Attack)
+S	Irithel	Force of The Queen	10	0	slow|physical damage	(+60% Total Physical Attack)
+S	Irithel	Heavy Crossbow	30		physical damage|basic attack	(+65% Total Physical Attack)
+H	Ixia	ixia	Marksman	Gold	Physical	Ranged	Finisher|Damage	hp1=2260|hp15=4339|hp_regen1=8|mana1=500|mana15=1900|physical_atk1=100|physical_atk15=205|physical_def1=16|physical_def15=72|magic_def1=15|magic_def15=50|movement_spd=250|basic_atk_range=5	7	3
+S	Ixia	Siphon Starlium			physical damage|basic attack|critical|lifesteal	(+150% Total Physical Attack)|(only 20% against non-hero units)
+S	Ixia	Dual Beam	4	35	physical damage	(+70% Total Physical Attack)
+S	Ixia	Star Helix	11	65	knock|physical damage	(+60% Total Physical Attack)
+S	Ixia	Full Barrage	42	120	basic attack	
+H	Jawhead	jawhead	Fighter	Exp|Roam	Physical	Melee	Charge|Burst	hp1=2480|hp15=5602|hp_regen1=7.8|mana1=500|mana15=1900|physical_atk1=119|physical_atk15=234|physical_def1=24|physical_def15=88|magic_def1=15|magic_def15=50|movement_spd=255|basic_atk_range=1.5	3	6
+S	Jawhead	Mecha Suppression			suppress	(limited to 50% for Creeps)
+S	Jawhead	Smart Missiles	5	60	physical damage	(+30% Total Physical Attack)
+S	Jawhead	Ejector	15	80	stun|shield|physical damage	(+100% Total Physical Attack)|(+80% Total Physical Attack)
+S	Jawhead	Unstoppable Force	35	120	stun|knock|physical damage	(+150% Total Physical Attack)
+H	Johnson	johnson	Tank|Support	Roam	Magic	Melee	Support|Crowd Control	hp1=2700|hp15=5990|hp_regen1=8.4|mana1=0|mana15=0|physical_atk1=120|physical_atk15=209|physical_def1=30|physical_def15=99|magic_def1=15|magic_def15=50|movement_spd=255|basic_atk_range=1.4	3	8
+S	Johnson	Electro Airbag			shield|cooldown	(+700% Total Physical Defense)
+S	Johnson	Impact Wrench	8		stun|magic damage	(+220% Total Physical Defense)
+S	Johnson	Electromagnetic Waves	10		shield|magic damage|basic attack	(+60% Total Magic Power)
+S	Johnson	Full Throttle	36		stun|slow|magic damage	(+240% Total Physical Defense)|(+360% Total Physical Defense)|(+20% Total Magic Power)
+H	Joy	joy	Assassin	Jungle	Magic	Melee	Chase|Damage	hp1=2519|hp15=5249|hp_regen1=7.8|mana1=0|mana15=0|physical_atk1=119|physical_atk15=255|physical_def1=20|physical_def15=78|magic_def1=15|magic_def15=45|movement_spd=260	7	3
+S	Joy	Humph, Joy's Angry!			magic damage|basic attack|cooldown	(+80% Total Magic Power)|(+65% Total Physical Attack)|(+65% Total Magic Power)
+S	Joy	Look, Leonin Crystal!	4		slow|magic damage	(+40% Total Magic Power)
+S	Joy	Meow, Rhythm of Joy!	0.132		shield|dash|magic damage	(+40% Total Magic Power)|(+60% Total Magic Power)
+S	Joy	Ha, Electrifying Beats!	28		slow|magic damage|spell vamp	(+10% Total Magic Power)|(+40% Total Magic Power)
+H	Julian	julian	Assassin|Fighter	Jungle|Exp	Magic	Melee	Chase|Magic Damage	hp1=2700|hp15=5486|hp_regen1=7.8|mana1=500|mana15=1900|physical_atk1=128|physical_atk15=257|physical_def1=24|physical_def15=74|magic_def1=15|magic_def15=38|movement_spd=262	6	6
+S	Julian	Smith's Legacy			magic damage|basic attack|lifesteal|cooldown	(+100% Total Physical Attack)|(+100% Total Magic Power)|(deals 85% damage to Creeps)
+S	Julian	Scythe	9	30	slow|magic damage	(+140% Total Magic Power)
+S	Julian	Sword	9	30	dash|magic damage	(+80% Total Magic Power)
+S	Julian	Chain	9	30	immobil|magic damage	(+100% Total Magic Power)
+H	Kadita	kadita	Mage|Assassin	Mid	Magic	Ranged	Burst|Charge	hp1=2440|hp15=4761|hp_regen1=7.2|mana1=500|mana15=1900|physical_atk1=105|physical_atk15=178|physical_def1=18|physical_def15=74|magic_def1=15|magic_def15=50|movement_spd=240|basic_atk_range=4.5	8	4
+S	Kadita	Thalassophobia				
+S	Kadita	Ocean Ode	9	55	slow|magic damage|damage reduction|immunity	(+90% Total Magic Power)
+S	Kadita	Breath of the Ocean	8	75	knock|magic damage	(+140% Total Magic Power)
+S	Kadita	Rough Waves	40	120	slow|suppress|magic damage|untargetable	(+60% Total Magic Power)|(+40% Total Magic Power)
+H	Kagura	kagura	Mage	Mid	Magic	Ranged	Poke|Finisher	hp1=2380|hp15=4381|hp_regen1=7|mana1=500|mana15=1900|physical_atk1=118|physical_atk15=230|physical_def1=17|physical_def15=73|magic_def1=15|magic_def15=50|movement_spd=240	9	4
+S	Kagura	Yin Yang Gathering	4.5		stun|slow|shield|cooldown	(+80% Total Magic Power)
+S	Kagura	Seimei Umbrella Open	5	45	slow|magic damage	(+105% Total Magic Power)
+S	Kagura	Rasho Umbrella Flee	12	55		
+S	Kagura	Yin Yang Overturn	36	60	slow|knock|magic damage	(+95% Total Magic Power)
+H	Kaja	kaja	Support	Roam	Magic	Melee	Initiator|Charge	hp1=2440|hp15=5520|hp_regen1=10.4|mana1=0|physical_atk1=120|physical_atk15=218|physical_def1=22|physical_def15=85|magic_def1=15|magic_def15=50|movement_spd=240|basic_atk_range=2.8	2	8
+S	Kaja	Wings of Lightning			slow	
+S	Kaja	Ring of Order	5.5		heal|magic damage	(+70% Total Magic Power)|(+45% Total Magic Power)
+S	Kaja	Soaring Wings	14		stun|knock|dash|magic damage|basic attack|cooldown|immunity	(+120% Total Magic Power)|(+25% Total Magic Power)|(+ 2% target's HP)
+S	Kaja	Divine Binding	70		magic damage	(+80% Total Magic Power)
+H	Kalea	kalea	Support|Fighter	Roam	Physical	Melee	Control|Regen	hp1=2500|hp15=5650|hp_regen1=7.8|mana1=0|mana15=0|physical_atk1=126|physical_atk15=255|physical_def1=18|physical_def15=81|magic_def1=15|magic_def15=50|movement_spd=260|basic_atk_range=1.4	3	6
+S	Kalea	Surge of Life			dash|physical damage|basic attack|attack speed|max hp	(+100% Total Physical Attack)|(+10% Max HP)|(+60% Total Magic Power)
+S	Kalea	Wavebreaker	3.5		slow|physical damage|max hp	(+5% Max HP)
+S	Kalea	Tidal Strike	16		knock|physical damage	(+60% Total Physical Attack)
+S	Kalea	Tsunami Slam	56		physical damage|max hp|immunity	(+14% Max HP)
+H	Karina	karina	Assassin	Jungle	Magic	Melee	Finisher|Magic Damage	hp1=2474|hp15=5103|hp_regen1=7.8|mana1=500|mana15=1900|physical_atk1=121|physical_atk15=236|physical_def1=20|physical_def15=83|magic_def1=15|magic_def15=50|movement_spd=260|basic_atk_range=1.8	7	5
+S	Karina	Shadow Combo			true damage|lost hp|cooldown	(+ 5 (+2.5% Total Magic Power)
+S	Karina	Dance of Blades	6	50	slow|magic damage|basic attack|critical|cooldown	(+30% Total Magic Power)|(+60% Total Magic Power)
+S	Karina	Dance of Death	6	60	magic damage	(+125% Total Magic Power)
+S	Karina	Shadow Assault	34	100	dash|magic damage|cooldown	(+160% Total Magic Power)|(+50% Total Magic Power)
+H	Karrie	karrie	Marksman	Gold	Physical	Ranged	Finisher|Damage	hp1=2320|hp15=4630|hp_regen1=8|mana1=500|mana15=1900|physical_atk1=120|physical_atk15=295|physical_def1=17|physical_def15=77|magic_def1=15|magic_def15=50|movement_spd=240|basic_atk_range=4.4	8	3
+S	Karrie	Lightwheel Mark			true damage|basic attack	
+S	Karrie	Spinning Lightwheel	8	65	slow|physical damage	(+20% Total Physical Attack)|(+10% Total Physical Attack)
+S	Karrie	Phantom Step	4.5	35	dash|physical damage	(+70% Total Physical Attack)
+S	Karrie	Speedy Lightwheel	35	100	physical damage|basic attack	(+50% Total Physical Attack)
+H	Khaleed	khaleed	Fighter	Roam|Exp	Physical	Melee	Damage|Regen	hp1=2600|hp15=5540|hp_regen1=7|mana1=0|physical_atk1=109|physical_atk15=266|physical_def1=23|physical_def15=87|magic_def1=15|magic_def15=50|movement_spd=250|basic_atk_range=2	5	8
+S	Khaleed	Sand Walk			physical damage|basic attack	(+140% Total Physical Attack)
+S	Khaleed	Desert Tornado	6.5		physical damage	(+130% Total Physical Attack)
+S	Khaleed	Quicksand Guard	18		slow|lost hp	
+S	Khaleed	Raging Sandstorm	46		stun|knock|physical damage	(+50% Total Physical Attack)|(+160% Total Physical Attack)
+H	Khufra	khufra	Tank	Roam	Mixed	Hybrid	Initiator|Crowd Control	hp1=2670|hp15=6030|hp_regen1=9.4|mana1=500|mana15=1900|physical_atk1=117|physical_atk15=204|physical_def1=19|physical_def15=119|magic_def1=15|magic_def15=71|movement_spd=255|basic_atk_range=2	2	9
+S	Khufra	Spell Curse			slow|magic damage|basic attack|cooldown	(+120% Total Physical Attack)|(+ 6% target's HP)
+S	Khufra	Tyrant's Revenge	15	80	knock|blink|physical damage	(+ 7 (+1.5% Extra Physical Attack)
+S	Khufra	Bouncing Ball	10	70	slow|knock|magic damage	(+ 3 (+2% Extra Physical Attack)
+S	Khufra	Tyrant's Rage	50	150	stun|slow|knock|suppress|physical damage	(+100% Total Physical Attack)
+H	Kimmy	kimmy	Marksman|Mage	Mid|Gold	Magic	Ranged	Damage|Magic Damage	hp1=2380|hp15=4025|hp_regen1=8|physical_atk1=100|physical_atk15=226|physical_def1=17|physical_def15=64|magic_def1=15|magic_def15=45|movement_spd=245	8	3
+S	Kimmy	Aerial Dominance			magic damage|basic attack|attack speed	
+S	Kimmy	Anti-Grav Thruster	14		slow|magic damage	(+25% Total Physical Attack)|(+30% Total Magic Power)
+S	Kimmy	Starlium Beam	12		immobil|magic damage	(+50% Total Physical Attack)|(+60% Total Magic Power)
+S	Kimmy	Traction Pulse	50		slow|magic damage	(+45% Total Physical Attack)|(+54% Total Magic Power)
+H	Lancelot	lancelot	Assassin	Jungle	Physical	Melee	Chase|Burst	hp1=2390|hp15=4448|hp_regen1=7|mana1=500|mana15=1900|physical_atk1=124|physical_atk15=289|physical_def1=16|physical_def15=60|magic_def1=15|magic_def15=38|movement_spd=260	5	4
+S	Lancelot	Soul Cutter				
+S	Lancelot	Puncture	14	40	physical damage|cooldown	(+50% Total Physical Attack)
+S	Lancelot	Thorned Rose	11	60	slow|physical damage|untargetable	(+120% Extra Physical Attack)
+S	Lancelot	Phantom Execution	36	100	physical damage	(+170% Total Physical Attack)
+H	Lapu-Lapu	lapu-lapu	Fighter	Exp	Physical	Melee	Chase|Burst	hp1=2450|hp15=5436|hp_regen1=7|mana1=0|mana15=0|physical_atk1=119|physical_atk15=234|physical_def1=21|physical_def15=71|magic_def1=15|magic_def15=38|movement_spd=260	4	8
+S	Lapu-Lapu	Homeland Defender			slow|shield|dash|physical damage|basic attack|critical	(+150% Total Physical Attack)
+S	Lapu-Lapu	Justice Blades	6		physical damage	(+50% Total Physical Attack)
+S	Lapu-Lapu	Jungle Warrior	10		dash|physical damage	(+50% Total Physical Attack)
+S	Lapu-Lapu	Bravest Fighter	30		slow|physical damage|basic attack	(+80% Total Physical Attack)
+H	Layla	layla	Marksman	Gold	Physical	Ranged	Finisher|Damage	hp1=2320|hp15=4448|hp_regen1=5.4|mana1=500|mana15=1900|physical_atk1=133|physical_atk15=252|physical_def1=17|physical_def15=73|magic_def1=15|magic_def15=50|movement_spd=250|basic_atk_range=4.3	8	1
+S	Layla	Malefic Gun				
+S	Layla	Malefic Bomb	6	35	physical damage|basic attack	(+80% Total Physical Attack)
+S	Layla	Void Projectile	7.5	70	stun|physical damage	(+65% Total Physical Attack)|(+35% Total Physical Attack)
+S	Layla	Destruction Rush	37	130	physical damage|basic attack	(+150% Total Physical Attack)
+H	Leomord	leomord	Fighter	Jungle	Physical	Melee	Chase|Burst	hp1=2560|hp15=5400|hp_regen1=7|mana1=0|mana15=0|physical_atk1=126|physical_atk15=247|physical_def1=21|physical_def15=74|magic_def1=15|magic_def15=38|movement_spd=240	5	7
+S	Leomord	The Oath Keeper			basic attack|max hp	(+15% Extra Max HP)
+S	Leomord	Momentum	6		slow|physical damage	(+180% Total Physical Attack)|(scales with channeling time; increased to 140% against creeps except the Turtle and Lord)
+S	Leomord	Decimation Assault	12		slow|physical damage	(+50% Total Physical Attack)
+S	Leomord	Phantom Steed	30		knock|physical damage|basic attack	(+40% Total Physical Attack)
+H	Lesley	lesley	Marksman|Assassin	Gold	Physical	Ranged	Finisher|Burst	hp1=2260|hp15=4220|hp_regen1=7.2|physical_atk1=145|physical_atk15=243|physical_def1=15|physical_def15=73|magic_def1=15|magic_def15=50|movement_spd=240|basic_atk_range=4.9	7	1
+S	Lesley	Lethal Shot			true damage|basic attack	(+100% Total Physical Attack)|(20% extra damage against minions)
+S	Lesley	Master of Camouflage	3.5	30		
+S	Lesley	Tactical Grenade	10	40	knock|physical damage	(+50% Total Physical Attack)
+S	Lesley	Ultimate Snipe	40	0	physical damage|lost hp|cooldown	(+80% Extra Physical Attack)|(+ 5% of the target's lost HP)
+H	Ling	ling	Assassin	Jungle	Physical	Melee	Chase|Burst	hp1=2369|hp15=4469|hp_regen1=7.8|physical_atk1=125|physical_atk15=209|physical_def1=18|physical_def15=74|magic_def1=15|magic_def15=50|movement_spd=260|basic_atk_range=1.8	6	4
+S	Ling	Cloud Walker				
+S	Ling	Finch Poise	20		slow|cooldown	
+S	Ling	Defiant Sword	2.5	35	slow|dash|physical damage|basic attack	(+50% Total Physical Attack)
+S	Ling	Tempest of Blades	52		slow|knock|physical damage|cooldown	(+100% Total Physical Attack)
+H	Lolita	lolita	Support|Tank	Roam	Physical	Melee	Guard|Crowd Control	hp1=2342|hp15=4694|hp_regen1=9.6|mana1=500|mana15=1900|physical_atk1=115|physical_atk15=211|physical_def1=20|physical_def15=71|magic_def1=15|magic_def15=50|movement_spd=260|basic_atk_range=1.8	1	10
+S	Lolita	Noumenon Energy Core			shield|max hp	(+2.5% Max HP)|(+20% Total Magic Power)
+S	Lolita	Power Charge	10	70	stun|dash|physical damage|basic attack	(+100% Total Physical Attack)
+S	Lolita	Guardian's Reflection	15	90	shield|basic attack|max hp	(+15% Max HP)
+S	Lolita	Noumenon Blast	55	100	stun|slow|physical damage	(+100% Total Physical Attack)
+H	Lukas	lukas	Fighter	Exp|Jungle	Physical	Melee	Regen|Damage	hp1=2620|hp15=5448|hp_regen1=8|mana1=0|mana15=0|physical_atk1=119|physical_atk15=248|physical_def1=23|physical_def15=85|magic_def1=15|magic_def15=50|movement_spd=260|basic_atk_range=1.8  / 2.6 (Flash Strike)	5	8
+S	Lukas	Hero's Resolve				
+S	Lukas	Flash Combo	5.5		stun|physical damage|basic attack|immunity	(+60% Total Physical Attack)|(+25% Total Physical Attack)|(+20% Total Physical Attack)
+S	Lukas	Flash Step	12		dash|physical damage|basic attack|attack speed	(+125% Total Physical Attack)|(+50% Total Physical Attack)
+S	Lukas	Unleash the Beast	0		physical damage|attack speed|immunity	(+155% Total Physical Attack)
+H	Lunox	lunox	Mage	Mid	Magic	Ranged	Burst|Damage	hp1=2440|hp15=5215|hp_regen1=6.8|mana1=500|mana15=1900|physical_atk1=115|physical_atk15=202|physical_def1=18|physical_def15=75|magic_def1=15|magic_def15=50|movement_spd=240	9	4
+S	Lunox	Dreamland Twist			spell vamp	
+S	Lunox	Starlight Pulse	2	30	magic damage|cooldown	(+110% Total Magic Power)|(+30% Total Magic Power)
+S	Lunox	Chaos Assault	2	30	magic damage|cooldown	(+120% Total Magic Power)|(+ 3.5% target's HP)|(+ 2.1% against creeps)
+S	Lunox	Order & Chaos	30	120	blink|cooldown	
+H	Luo Yi	luo-yi	Mage	Mid	Magic	Ranged	Support|Crowd Control	hp1=2440|hp15=4995|hp_regen1=7.2|mana1=500|mana15=1900|physical_atk1=107|physical_atk15=193|physical_def1=18|physical_def15=72|magic_def1=15|magic_def15=45|movement_spd=250	10	2
+S	Luo Yi	Duality			stun|shield|magic damage	(+190% Total Magic Power)|(+150% Total Magic Power)
+S	Luo Yi	Dispersion	1.2	50	magic damage	(+135% Total Magic Power)
+S	Luo Yi	Rotation	12	75	slow|magic damage	(+50% Total Magic Power)|(+10% Total Magic Power)
+S	Luo Yi	Diversion	55|50|45	0	cooldown	
+H	Lylia	lylia	Mage	Mid	Magic	Ranged	Push|Damage	hp1=2380|hp15=4263|hp_regen1=6.8|mana1=500|mana15=1900|physical_atk1=113|physical_atk15=207|physical_def1=17|physical_def15=61|magic_def1=15|magic_def15=38|movement_spd=245	10	5
+S	Lylia	Angry Gloom				
+S	Lylia	Magic Shockwave	4	40	slow|magic damage	(+100% Total Magic Power)
+S	Lylia	Shadow Energy	1	32	slow|magic damage	(+50% Total Magic Power)|(+115% Total Magic Power)|(up to 80%)
+S	Lylia	Black Shoes	45	120		
+H	Marcel	marcel	Support	Roam	Physical	Melee	Crowd Control|Support	hp1=2950|hp15=5190|hp_regen1=22.4|mana1=500|mana15=1900|physical_atk1=115|physical_atk15=216|physical_def1=30|physical_def15=51|magic_def1=20|magic_def15=27|movement_spd=260|basic_atk_range=2	3	7
+S	Marcel	Platinum Snap	12		shield|true damage|physical damage|basic attack|cooldown	(+40% Total Physical Attack)|(+40% Total Magic Defense)|(+40% Total Physical Defense)|(+ 5% of HP)
+S	Marcel	Framed Moment	15	40	slow|physical damage	(+50% Total Physical Attack)|(+120% Total Magic Defense)|(+120% Total Physical Defense)
+S	Marcel	Tracking Shot	15	70	dash	
+S	Marcel	Golden Hour	90	150	shield|cooldown	(targeted projectiles will deal 50% damage)
+H	Martis	martis	Fighter	Jungle|Exp	Physical	Melee	Finisher|Charge	hp1=2560|hp15=5416|hp_regen1=7|mana1=0|physical_atk1=128|physical_atk15=250|physical_def1=25|physical_def15=90|magic_def1=15|magic_def15=50|movement_spd=260	3	6
+S	Martis	Asura's Wrath			attack speed	
+S	Martis	Asura Aura	7		slow|physical damage	(+130% Extra Physical Attack)
+S	Martis	Mortal Coil	8		knock|physical damage|damage reduction|immunity	(+120% Extra Physical Attack)|(+150% Extra Physical Attack)
+S	Martis	Decimation	36		true damage|physical damage	(+120% Total Physical Attack)|(deals True Damage if the enemy's HP is below 50%)|(up to 30%)
+H	Masha	masha	Fighter|Tank	Exp	Physical	Melee	Push|Damage	hp1=1100|hp15=3410|hp_regen1=3.8|mana1=0|physical_atk1=110|physical_atk15=246|physical_def1=15|physical_def15=50|magic_def1=15|magic_def15=67|movement_spd=250|basic_atk_range=1.6	7	5
+S	Masha	Primal Pact			physical damage|basic attack|attack speed	(+0.5% Extra Physical Attack)
+S	Masha	Feral Swipe	8		physical damage	(+55% Total Physical Attack)
+S	Masha	Claw Strike	9		dash|physical damage|cooldown	(+80% Extra Physical Attack)
+S	Masha	Savage Maul	42		stun|knock|physical damage|max hp	(+50% Extra Max HP)
+H	Mathilda	mathilda	Support|Assassin	Roam	Magic	Ranged	Initiator|Guard	hp1=2530|hp15=5344|hp_regen1=6.8|mana1=500|mana15=1900|physical_atk1=120|physical_atk15=214|physical_def1=22|physical_def15=80|magic_def1=15|magic_def15=50|movement_spd=252|basic_atk_range=4.1	2	8
+S	Mathilda	Ancestral Guidance			magic damage|basic attack	(+100% Total Physical Attack)|(+100% Total Magic Power)
+S	Mathilda	Soul Bloom	7.5	50	magic damage	(+125% Total Magic Power)
+S	Mathilda	Guiding Wind	13.5	60	shield	(+180% Total Magic Power)
+S	Mathilda	Circling Eagle	65	120	slow|knock|shield|dash|magic damage|cooldown|immunity	(+15% Total Magic Power)|(+120% Total Magic Power)|(+180% Total Magic Power)
+H	Melissa	melissa	Marksman	Gold	Mixed	Ranged	Finisher|Damage	hp1=2320|hp15=4560|hp_regen1=6.6|mana1=500|mana15=1900|physical_atk1=123|physical_atk15=221|physical_def1=17|physical_def15=77|magic_def1=15|magic_def15=50|movement_spd=240|basic_atk_range=4.6	9	2
+S	Melissa	Doll Buster				(Melissa deals 125% damage to Minions, Creeps, and Summoned Units.)
+S	Melissa	Falling!	5	30	attack speed	
+S	Melissa	Eyes on You!	9	70	slow|physical damage|basic attack	(Muddles deals 175 (+50% Total Physical Attack)
+S	Melissa	Go Away!	50	120	slow|knock|shield|magic damage|immunity	(Upon activation, Melissa gains a 300 (+200% Extra Physical Attack)|(+100% Total Magic Power)|(+10% Total Magic Power)
+H	Minotaur	minotaur	Tank|Support	Roam	Physical	Melee	Crowd Control	hp1=2750|hp15=6236|hp_regen1=8.8|mana1=0|mana15=0|physical_atk1=123|physical_atk15=195|physical_def1=23|physical_def15=78|magic_def1=15|magic_def15=50|movement_spd=260|basic_atk_range=1.8	1	10
+S	Minotaur	Rage Incarnate				
+S	Minotaur	Despair Stomp	12		slow|knock|physical damage|basic attack|max hp	(+60% Total Physical Attack)|(+5% Max HP)
+S	Minotaur	Motivation Roar	10		heal|lost hp	(+60% Total Magic Power)
+S	Minotaur	Minoan Fury	60		slow|knock|true damage|physical damage	(+85% Total Physical Attack)
+H	Minsitthar	minsitthar	Fighter	Exp	Physical	Melee	Initiator|Crowd Control	hp1=2520|hp15=5292|hp_regen1=7.4|mana1=500|mana15=1900|physical_atk1=121|physical_atk15=250|physical_def1=23|physical_def15=87|magic_def1=15|magic_def15=50|movement_spd=260|basic_atk_range=1.8	4	6
+S	Minsitthar	Mark of the King			stun|heal|physical damage|basic attack|max hp	(+6% Max HP)
+S	Minsitthar	Spear of Glory	13	95	stun|slow|physical damage	(+40% Total Physical Attack)
+S	Minsitthar	Shield Assault	4	50	slow|shield|physical damage|basic attack	(+45% Total Physical Attack)
+S	Minsitthar	King's Calling	45	150	slow|physical damage	(+40% Total Physical Attack)
+H	Miya	miya	Marksman	Gold	Physical	Ranged	Finisher|Damage	hp1=2320|hp15=4462|hp_regen1=6|mana1=500|mana15=1900|physical_atk1=115|physical_atk15=227|physical_def1=17|physical_def15=74|magic_def1=15|magic_def15=50|movement_spd=250|basic_atk_range=4.8	7	1
+S	Miya	Moon Blessing			physical damage|basic attack|attack speed	(+20% Total Physical Attack)
+S	Miya	Moon Arrow	11	60	physical damage|basic attack	(+100% Total Physical Attack)
+S	Miya	Arrow of Eclipse	8	90	slow|immobil|physical damage	(+45% Total Physical Attack)|(+20% Total Physical Attack)
+S	Miya	Hidden Moonlight	30	120		
+H	Moskov	moskov	Marksman	Gold	Physical	Ranged	Finisher|Chase	hp1=2380|hp15=4382|hp_regen1=6.4|mana1=500|mana15=1900|physical_atk1=125|physical_atk15=265|physical_def1=18|physical_def15=78|magic_def1=15|magic_def15=50|movement_spd=240|basic_atk_range=4.5	6	2
+S	Moskov	Spear of Quiescence			basic attack|cooldown	(+65% (+3%*Hero Level)
+S	Moskov	Abyss Walker	10	50	basic attack|attack speed	
+S	Moskov	Spear of Misery	12	90	stun|knock|physical damage	(+60% Total Physical Attack)|(+30% Total Physical Attack)
+S	Moskov	Spear of Destruction	55	130	slow|physical damage|cooldown	(+100% Total Physical Attack)
+H	Nana	nana	Mage	Mid	Magic	Ranged	Poke|Burst	hp1=2380|hp15=4200|hp_regen1=6.8|mana1=500|mana15=1900|physical_atk1=115|physical_atk15=217|physical_def1=17|physical_def15=59|magic_def1=15|magic_def15=38|movement_spd=250	6	5
+S	Nana	Molina's Gift	150			
+S	Nana	Magic Boomerang	6	55	magic damage	(+100% Total Magic Power)
+S	Nana	Molina Smooch	12	80	magic damage	(+50% Total Magic Power)
+S	Nana	Molina Blitz	36	135	stun|slow|magic damage	(+140% Total Magic Power)
+H	Natalia	natalia	Assassin	Jungle|Roam	Physical	Melee	Chase|Finisher	hp1=2480|hp15=4776|hp_regen1=7|mana1=0|mana15=0|physical_atk1=121|physical_atk15=243|physical_def1=18|physical_def15=75|magic_def1=15|magic_def15=50|movement_spd=260|basic_atk_range=2	6	1
+S	Natalia	Assassin Instinct			physical damage|basic attack	(+110% Total Physical Attack)
+S	Natalia	Claw Dash	10		dash|physical damage	(+50% Total Physical Attack)
+S	Natalia	Smoke Bomb	12		slow|basic attack	
+S	Natalia	The Hunt	3			
+H	Natan	natan	Marksman	Gold	Magic	Ranged	Burst|Magic Damage	hp1=2260|hp15=4498|hp_regen1=6|mana1=500|mana15=1900|physical_atk1=107|physical_atk15=261|physical_def1=16|physical_def15=62|magic_def1=15|magic_def15=38|movement_spd=245	6	2
+S	Natan	Theory of Everything			magic damage|basic attack|attack speed	(+50% Total Physical Attack)|(+60% Total Magic Power)
+S	Natan	Superposition	8	50	magic damage	(+100% Total Physical Attack)|(+120% Total Magic Power)
+S	Natan	Interference!	12	60	knock|magic damage	(+50% Total Physical Attack)|(+60% Total Magic Power)|(+10% Total Physical Attack)|(+12% Total Magic Power)
+S	Natan	Entropy?	24	100	basic attack|cooldown	
+H	Nolan	nolan	Assassin	Jungle	Physical	Melee	Chase|Burst	hp1=2390|hp15=4448|hp_regen1=7|physical_atk1=124|physical_atk15=289|physical_def1=16|physical_def15=72|magic_def1=15|magic_def15=50|movement_spd=260|basic_atk_range=2	6	3
+S	Nolan	Dimensional Rift			slow|heal|dash|physical damage|basic attack	(+140% Extra Physical Attack)|(+120% Extra Physical Attack)|(+120% Total Physical Attack)
+S	Nolan	Expansion	2.5	25	physical damage	(+40% Total Physical Attack)
+S	Nolan	Gauge	2.5	25	physical damage	(+13% Total Physical Attack)
+S	Nolan	Fracture	21	0	slow|dash|physical damage	(+50% Extra Physical Attack)
+H	Novaria	novaria	Mage	Mid	Magic	Ranged	Burst|Poke	hp1=2260|hp15=4150|hp_regen1=6.8|mana1=500|mana15=1900|physical_atk1=115|physical_atk15=202|physical_def1=15|physical_def15=64|magic_def1=15|magic_def15=50|movement_spd=240	9	3
+S	Novaria	Star Trail			slow	
+S	Novaria	Astral Meteor	8	60	slow|magic damage	(+25% Total Magic Power)|(+50% Total Magic Power)|(+ 4% target's HP)
+S	Novaria	Astral Recall	20	60	magic damage	(decays to 30%)|(+95% Total Magic Power)|(+ 5% target's HP)
+S	Novaria	Astral Echo	48	100	slow	
+H	Obsidia	obsidia	Marksman	Gold	Physical	Ranged	Finisher|Damage	hp1=2320|hp15=4420|hp_regen1=6|mana1=500|mana15=1900|physical_atk1=120|physical_atk15=204|physical_def1=17|physical_def15=75|magic_def1=15|magic_def15=50|movement_spd=240|basic_atk_range=4.6	7	2
+S	Obsidia	Return to Bone			physical damage|basic attack	(7% Total Physical Attack)
+S	Obsidia	Abyssal Bone Needle	4.5	35	physical damage	(+80% Total Physical Attack)
+S	Obsidia	Phantom Shadowmeld	4.5	40		
+S	Obsidia	Hunt of Bone	40	100	stun|shield|physical damage|basic attack|cooldown	(+60% Extra Physical Attack)
+H	Odette	odette	Mage	Mid	Magic	Ranged	Burst|Poke	hp1=2440|hp15=4890|hp_regen1=6.8|mana1=500|mana15=1900|physical_atk1=105|physical_atk15=178|physical_def1=18|physical_def15=74|magic_def1=15|magic_def15=50|movement_spd=250|basic_atk_range=4.7	10	4
+S	Odette	Lakeshore Ambience			magic damage|basic attack	(+50% Total Magic Power)
+S	Odette	Avian Authority	6	65	slow|magic damage	(+150% Total Magic Power)
+S	Odette	Blue Nova	12	75	immobil|magic damage	(+50% Total Magic Power)
+S	Odette	Swan Song	50	160	shield|magic damage	(+150% Total Magic Power)|(+750% Total Magic Power)
+H	Paquito	paquito	Fighter|Assassin	Exp|Jungle	Physical	Melee	Chase|Damage	hp1=2620|hp15=5280|hp_regen1=9.8|mana1=0|mana15=0|physical_atk1=121|physical_atk15=262|physical_def1=22|physical_def15=74|magic_def1=15|magic_def15=38|movement_spd=260	5	6
+S	Paquito	Champ Stance			physical damage|basic attack|cooldown	(+85% Total Physical Attack)
+S	Paquito	Heavy Left Punch	7		shield|physical damage	(+50% Total Physical Attack)|(+135% Total Physical Attack)|(+100% Total Physical Attack)
+S	Paquito	Jab	7		dash|physical damage	(+165% Total Physical Attack)|(+210% Total Physical Attack)
+S	Paquito	Knockout Strike	15		slow|knock|physical damage	(+50% Total Physical Attack)|(+90% Total Physical Attack)|(+120% Total Physical Attack)
+H	Pharsa	pharsa	Mage	Mid	Magic	Ranged	Burst|Poke	hp1=2320|hp15=4154|hp_regen1=6.8|mana1=500|mana15=1900|physical_atk1=109|physical_atk15=199|physical_def1=16|physical_def15=72|magic_def1=15|magic_def15=50|movement_spd=240|basic_atk_range=4.7	9	2
+S	Pharsa	Spiritual Unity	8		slow|magic damage	(+ 1% per 200 Magic Power)
+S	Pharsa	Curse of Crow	8	60	stun|magic damage|basic attack	(+120% Total Magic Power)
+S	Pharsa	Energy Impact	6.5	60	magic damage	(+145% Total Magic Power)
+S	Pharsa	Feathered Air Strike	36	120	magic damage	(+160% Total Magic Power)
+H	Phoveus	phoveus	Fighter	Exp	Mixed	Melee	Regen|Damage	hp1=2550|hp15=5630|hp_regen1=10.8|mana1=0|mana15=0|physical_atk1=120|physical_atk15=228|physical_def1=22|physical_def15=84|magic_def1=15|magic_def15=50|movement_spd=252|basic_atk_range=1.4	8	7
+S	Phoveus	Demonic Force			knock|shield|dash|blink|magic damage|basic attack|cooldown	
+S	Phoveus	Demonic Impact	6		slow|magic damage|physical damage	(+120% Total Physical Attack)|(+60% Total Physical Attack)
+S	Phoveus	Dark Wave	10		knock|magic damage	(+100% Extra Physical Attack)
+S	Phoveus	Infernal Pursuit			physical damage|max hp|lost hp	(+100% Total Physical Attack)
+H	Popol and Kupa	popol-and-kupa	Marksman	Jungle|Gold	Mixed	Ranged	Push|Burst	hp1=2260|hp15=4220|hp_regen1=6|mana1=500|mana15=1900|physical_atk1=100|physical_atk15=198|physical_def1=16|physical_def15=66|magic_def1=15|magic_def15=50|movement_spd=250|basic_atk_range=4.5	7	3
+S	Popol and Kupa	We Are Friends			true damage|max hp|cooldown	
+S	Popol and Kupa	Bite 'em, Kupa!	7	50	slow|knock|physical damage|basic attack|attack speed	(+70% Total Physical Attack)|(+40% Total Physical Attack)|(+140% Total Physical Attack)
+S	Popol and Kupa	Kupa, Help!	10	50	shield|basic attack|max hp	(+200% Extra Physical Attack)
+S	Popol and Kupa	We Are Angry!	38	100		
+H	Rafaela	rafaela	Support	Roam	Magic	Ranged	Regen|Guard	hp1=2320|hp15=4268|hp_regen1=7.2|mana1=500|mana15=1900|physical_atk1=117|physical_atk15=218|physical_def1=15|physical_def15=70|magic_def1=15|magic_def15=50|movement_spd=245|basic_atk_range=4.5	2	6
+S	Rafaela	Divine Resurrection			cooldown	
+S	Rafaela	Light of Retribution	5	45	slow|magic damage	(+120% Total Magic Power)
+S	Rafaela	Holy Healing	10.5	75	slow|immunity	(+35% Total Magic Power)|(+65% Total Magic Power)
+S	Rafaela	Holy Baptism	38	120	stun|magic damage	(+120% Total Magic Power)
+H	Roger	roger	Fighter|Marksman	Jungle	Physical	Hybrid	Finisher|Burst	hp1=2530|hp15=4889|hp_regen1=7.2|mana1=500|mana15=1900|physical_atk1=128|physical_atk15=317|physical_def1=22|physical_def15=82|magic_def1=15|magic_def15=50|movement_spd=240|basic_atk_range=4.1 (Human Form) / 1.7 (Wolf Form)	4	6
+S	Roger	Full Moon Curse				
+S	Roger	Open Fire	7	50	slow|physical damage	(+125% Total Physical Attack)
+S	Roger	Hunter's Steps	10	50	attack speed	
+S	Roger	Wolf Transformation	7.5		slow|physical damage	(+100% Extra Physical Attack)
+H	Ruby	ruby	Fighter	Exp	Physical	Melee	Crowd Control|Regen	hp1=2331|hp15=4921|hp_regen1=6|mana1=500|mana15=1900|physical_atk1=129|physical_atk15=226|physical_def1=18|physical_def15=74|magic_def1=10|magic_def15=45|movement_spd=260|basic_atk_range=2	2	9
+S	Ruby	Let's Dance!			dash|basic attack|lifesteal|spell vamp	
+S	Ruby	Be Good!	4	25	slow|physical damage	(+110% Total Physical Attack)|(+55% Total Physical Attack)
+S	Ruby	Don't Run, Wolf King!	7	50	stun|slow|physical damage	(+55% Total Physical Attack)
+S	Ruby	I'm Offended!	40	80	stun|physical damage	(+200% Total Physical Attack)
+H	Saber	saber	Assassin	Jungle|Roam	Physical	Melee	Charge|Finisher	hp1=2500|hp15=5230|hp_regen1=7|mana1=500|mana15=1900|physical_atk1=118|physical_atk15=254|physical_def1=20|physical_def15=83|magic_def1=15|magic_def15=50|movement_spd=260|basic_atk_range=1.8	6	2
+S	Saber	Enemy's Bane				
+S	Saber	Orbiting Swords	10	60	physical damage|cooldown	(+25% Extra Physical Attack)|(+50% Extra Physical Attack)|(damage reduced to 50% against minions)
+S	Saber	Charge	7	40	slow|dash|physical damage|basic attack	(+50% Extra Physical Attack)|(+120% Total Physical Attack)
+S	Saber	Triple Sweep	44	100	knock|physical damage	(+80% Extra Physical Attack)|(+160% Extra Physical Attack)
+H	Selena	selena	Assassin|Mage	Mid	Magic	Hybrid	Initiator|Finisher	hp1=2280|hp15=4863|hp_regen1=6.8|mana1=500|mana15=1900|physical_atk1=110|physical_atk15=204|physical_def1=15|physical_def15=62|magic_def1=15|magic_def15=50|movement_spd=240	7	4
+S	Selena	Symbiosis			magic damage	(+40% Total Magic Power)
+S	Selena	Abyssal Trap	8	70	magic damage	(+150% Total Magic Power)
+S	Selena	Abyssal Arrow	12	80	stun|magic damage	(+20% Total Magic Power)|(+40% Total Magic Power)
+S	Selena	Primal Darkness	5.5		cooldown	
+H	Silvanna	silvanna	Fighter	Exp	Magic	Melee	Initiator|Magic Damage	hp1=2650|hp15=5618|hp_regen1=7.8|mana1=500|mana15=1900|physical_atk1=126|physical_atk15=255|physical_def1=22|physical_def15=85|magic_def1=15|magic_def15=50|movement_spd=255|basic_atk_range=1.8	4	5
+S	Silvanna	Knightess' Resolve			magic damage|basic attack	(+45% Total Physical Attack)|(+75% Total Magic Power)
+S	Silvanna	Cometic Lance	11	70	stun|dash|magic damage	(+100% Total Magic Power)
+S	Silvanna	Spiral Strangling	5	35	shield|magic damage|basic attack|attack speed	(+150% Total Magic Power)|(+45% Total Magic Power)
+S	Silvanna	Imperial Justice	52	130	slow|magic damage|attack speed|lifesteal	(+110% Total Magic Power)
+H	Sora	sora	Fighter|Assassin	Exp	Physical	Melee	Charge|Burst	hp1=2800|hp15=5880|hp_regen1=10.8|mana1=0|mana15=0|physical_atk1=132|physical_atk15=240|physical_def1=25|physical_def15=87|magic_def1=15|magic_def15=50|movement_spd=252|basic_atk_range=1.4 (Default & Thunder) / 1.6 (Torrent)	6	6
+S	Sora	Mystic Surge				(Equal to 10% of HP)
+S	Sora	Sundering Strike	5		dash|physical damage|max hp	(+50% Total Physical Attack)|(+5% Max HP)
+S	Sora	Windstride	8		slow|physical damage|max hp|cooldown	(+55% Total Physical Attack)|(+8% Max HP)
+S	Sora	Shifting Skies	32		physical damage|max hp|untargetable|immunity	(+50% Total Physical Attack)|(+8% Max HP)
+H	Sun	sun	Fighter	Exp|Jungle	Physical	Melee	Push|Damage	hp1=2500|hp15=5440|hp_regen1=8.2|mana1=500|mana15=1900|physical_atk1=114|physical_atk15=191|physical_def1=23|physical_def15=86|magic_def1=15|magic_def15=50|movement_spd=260	5	5
+S	Sun	Simian God			basic attack	
+S	Sun	Endless Variety	6.5	70	physical damage|cooldown	(+40% Total Physical Attack)
+S	Sun	Swift Exchange	6.5	70	physical damage	(+40% Total Physical Attack)
+S	Sun	Clone Techniques	32			
+H	Suyou	suyou	Assassin|Fighter	Jungle	Physical	Melee	Chase|Burst	hp1=2390|hp15=4448|hp_regen1=7|mana1=0|mana15=0|physical_atk1=124|physical_atk15=289|physical_def1=16|physical_def15=72|magic_def1=15|magic_def15=56|movement_spd=225|basic_atk_range=1.7 (Mortal Form) / 2.5 (Immortal Form)	6	6
+S	Suyou	Transient Immortal			physical damage|basic attack|damage reduction	
+S	Suyou	Blade Surge	8.5		stun|blink|physical damage	(+100% Extra Physical Attack)|(+150% Extra Physical Attack)
+S	Suyou	Soul Sever	8.5		physical damage|lost hp	(+200% Extra Physical Attack)|(+ 15% of target's lost HP)|(+80% Extra Physical Attack)|(+128% Extra Physical Attack)|(+50% Extra Physical Attack)
+S	Suyou	Evil Queller			physical damage	(+120% Extra Physical Attack)|(+165% Extra Physical Attack)
+H	Terizla	terizla	Fighter|Tank	Exp	Physical	Melee	Burst|Crowd Control	hp1=2619|hp15=5839|hp_regen1=10.8|mana1=0|mana15=0|physical_atk1=129|physical_atk15=307|physical_def1=19|physical_def15=122|magic_def1=15|magic_def15=71|movement_spd=255|basic_atk_range=2	5	9
+S	Terizla	Body of Smith			attack speed|damage reduction	
+S	Terizla	Revenge Strike	8.5		slow|physical damage|lost hp	(+80% Extra Physical Attack)|(+ 20% of the target's lost HP)
+S	Terizla	Execution Strike	9		slow|physical damage	(+135% Total Physical Attack)|(+220% Total Physical Attack)
+S	Terizla	Penalty Zone	50		slow|knock|physical damage	(+100% Total Physical Attack)|(+30% Total Physical Attack)
+H	Thamuz	thamuz	Fighter	Exp|Jungle	Physical	Melee	Chase|Damage	hp1=2580|hp15=5562|hp_regen1=7.4|mana1=0|mana15=0|physical_atk1=107|physical_atk15=222|physical_def1=17|physical_def15=80|magic_def1=15|magic_def15=50|movement_spd=250|basic_atk_range=1.8	4	7
+S	Thamuz	Grand Lord Lava			slow|true damage|basic attack	(+60% Total Physical Attack)
+S	Thamuz	Molten Scythes	3		slow|physical damage	(+60% Total Physical Attack)|(+20% Extra Physical Attack)
+S	Thamuz	Chasm Trample	8		slow|physical damage	(+60% Extra Physical Attack)
+S	Thamuz	Cauterant Inferno	38		heal|physical damage|basic attack|attack speed|max hp	(+80% Total Physical Attack)|(+10% Extra Physical Attack)|(+50% Extra Max HP)
+H	Tigreal	tigreal	Tank	Roam	Physical	Melee	Crowd Control	hp1=2700|hp15=6760|hp_regen1=8.4|mana1=500|mana15=1900|physical_atk1=112|physical_atk15=207|physical_def1=25|physical_def15=123|magic_def1=15|magic_def15=71|movement_spd=260|basic_atk_range=1.8	1	8
+S	Tigreal	Fearless			basic attack	
+S	Tigreal	Attack Wave	7	45	slow|physical damage	(+70% Total Physical Attack)
+S	Tigreal	Sacred Hammer	16	70	knock|physical damage	(+100% Total Physical Attack)|(+60% Total Physical Attack)
+S	Tigreal	Implosion	55	120	stun|suppress|physical damage	(+130% Total Physical Attack)
+H	Uranus	uranus	Tank	Exp	Magic	Melee	Regen	hp1=2380|hp15=4900|hp_regen1=6.4|mana1=500|mana15=1900|physical_atk1=115|physical_atk15=217|physical_def1=19|physical_def15=52|magic_def1=15|magic_def15=24|movement_spd=260	2	10
+S	Uranus	Radiance				
+S	Uranus	Ionic Edge	4	60	slow|magic damage	(+30% Total Magic Power)
+S	Uranus	Transcendent Ward	10	80	slow|shield|magic damage	(+20% Total Magic Power)|(+80% Total Magic Power)|(+200% Total Magic Power)|(+150% Total Magic Power)
+S	Uranus	Consecration	42	100	slow|shield	
+H	Vale	vale	Mage	Mid	Magic	Ranged	Burst|Crowd Control	hp1=2380|hp15=4363|hp_regen1=6.8|mana1=500|mana15=1900|physical_atk1=115|physical_atk15=215|physical_def1=17|physical_def15=73|magic_def1=15|movement_spd=250|basic_atk_range=4.7	10	2
+S	Vale	Windtalk				
+S	Vale	Wind Blade	6	60	magic damage	(+80% Total Magic Power)
+S	Vale	Windblow	12	70	knock|magic damage	(+100% Total Magic Power)|(+30% Total Magic Power)
+S	Vale	Windstorm	36	120	slow|magic damage	(+30% Total Magic Power)|(+240% Total Magic Power)
+H	Valentina	valentina	Mage	Mid	Magic	Ranged	Burst|Finisher	hp1=2500|hp15=5125|hp_regen1=7.2|mana1=500|mana15=1900|physical_atk1=115|physical_atk15=205|physical_def1=20|physical_def15=74|magic_def1=15|magic_def15=38|movement_spd=240	4	5
+S	Valentina	Primal Force	2		cooldown	
+S	Valentina	Shadow Strike	7	70	slow|magic damage	(+145% Total Magic Power)
+S	Valentina	Arcane Shade	12	40	dash|magic damage|cooldown	(+30% Total Magic Power)
+S	Valentina	I Am You	55		slow|physical damage|basic attack|cooldown	(+100% Total Magic Power)
+H	Valir	valir	Mage	Mid	Magic	Ranged	Damage|Guard	hp1=2380|hp15=4501|hp_regen1=6.8|mana1=500|mana15=1900|physical_atk1=105|physical_atk15=171|physical_def1=17|physical_def15=74|magic_def1=15|magic_def15=50|movement_spd=250|basic_atk_range=4.7	7	2
+S	Valir	Ashing			stun|magic damage	(+0.2% Total Magic Power)|(+1% Total Magic Power)
+S	Valir	Burst Fireball	1.5	45	slow|magic damage	(+80% Total Magic Power)|(+40% Total Magic Power)
+S	Valir	Searing Torrent	13	75	slow|knock|magic damage	(+60% Total Magic Power)|(+30% Total Magic Power)
+S	Valir	Vengeance Flame	36	100		
+H	Vexana	vexana	Mage	Mid	Magic	Ranged	Poke|Control	hp1=2380|hp15=4305|hp_regen1=7.6|mana1=500|mana15=1900|physical_atk1=112|physical_atk15=193|physical_def1=17|physical_def15=63|magic_def1=15|magic_def15=38|movement_spd=250	9	2
+S	Vexana	Nether Touch			magic damage	(+60% Total Magic Power)
+S	Vexana	Deathly Grasp	14	80	knock|magic damage	(+60% Total Magic Power)
+S	Vexana	Cursed Blast	7	60	magic damage	(+165% Total Magic Power)
+S	Vexana	Eternal Guard	60	120	knock|magic damage	(+60% Total Magic Power)|(+40% Total Magic Power)|(+ 5% target's HP)
+H	Wanwan	wanwan	Marksman	Gold	Physical	Ranged	Finisher|Burst	hp1=2320|hp15=4189|hp_regen1=5.4|mana1=500|mana15=1900|physical_atk1=110|physical_atk15=257|physical_def1=17|physical_def15=61|magic_def1=15|magic_def15=38|movement_spd=240	6	2
+S	Wanwan	Tiger Pace			dash|true damage|basic attack|attack speed	
+S	Wanwan	Swallow’s Path	12	85	slow|immobil|physical damage	(+40% Total Physical Attack)
+S	Wanwan	Needles in Flowers	24	125	physical damage	(+60% Total Physical Attack)
+S	Wanwan	Crossbow of Tang	50|46|42	130|150|170	physical damage|basic attack|attack speed|untargetable	(+35% Total Physical Attack)
+H	X.Borg	x-borg	Fighter	Exp	Physical	Hybrid	Regen|Burst	hp1=917|hp15=2443|hp_regen1=7.8|mana1=0|physical_atk1=117|physical_atk15=232|physical_def1=25|physical_def15=90|magic_def1=15|magic_def15=50|movement_spd=260|basic_atk_range=1.8 (Armored State) / 4.2 (Armorless State)	3	8
+S	X.Borg	Firaga Armor			true damage	
+S	X.Borg	Fire Missiles	4		physical damage	(+60% Total Physical Attack)|(+40% Total Magic Power)|(75% damage to minions)
+S	X.Borg	Fire Stake	9		physical damage	(+20% Total Physical Attack)
+S	X.Borg	Last Insanity	30	100	slow|true damage|physical damage	(+60% Extra Physical Attack)|(+45% Total Magic Power)|(+ 15% target's HP)
+H	Xavier	xavier	Mage	Mid	Magic	Ranged	Damage|Guard	hp1=2380|hp15=4375|hp_regen1=6.8|mana1=500|mana15=1900|physical_atk1=111|physical_atk15=198|physical_def1=17|physical_def15=61|magic_def1=15|magic_def15=38|movement_spd=250	10	3
+S	Xavier	Transcendence			cooldown	
+S	Xavier	Infinite Extension	6.5	45	magic damage	(+100% Total Magic Power)
+S	Xavier	Mystic Field	13	80	slow|immobil|magic damage	(+130% Total Magic Power)
+S	Xavier	Dawning Light	56	120	magic damage	(+180% Total Magic Power)
+H	Yi Sun-shin	yi-sun-shin	Assassin|Marksman	Jungle	Physical	Hybrid	Finisher|Chase	hp1=2320|hp15=4420|hp_regen1=7.2|mana1=500|mana15=1900|physical_atk1=110|physical_atk15=222|physical_def1=22|physical_def15=82|magic_def1=10|magic_def15=40|movement_spd=250|basic_atk_range=4.5	9	4
+S	Yi Sun-shin	Heavenly Vow			basic attack|attack speed	
+S	Yi Sun-shin	Traceless	12	50	dash|physical damage|cooldown|immunity	(+40% Total Physical Attack)
+S	Yi Sun-shin	Blood Floods	11	60	physical damage	(+80% Total Physical Attack)|(damage scales with hold time, up to 200%)
+S	Yi Sun-shin	Mountain Shocker	60	150	stun|slow|physical damage	(decays to 20% over 2s)|(+50% Total Physical Attack)
+H	Yin	yin	Fighter|Assassin	Jungle|Exp	Physical	Melee	Burst|Control	hp1=2400|hp15=5060|hp_regen1=9.8|mana1=0|mana15=0|physical_atk1=109|physical_atk15=210|physical_def1=21|physical_def15=71|magic_def1=15|magic_def15=38|movement_spd=252	6	5
+S	Yin	Leave It to Me			spell vamp	
+S	Yin	Charged Punch	10		physical damage|basic attack|cooldown	(+100% Total Physical Attack)|(+200% Extra Physical Attack)
+S	Yin	Instant Blast	12		stun|dash|physical damage|damage reduction	(+35% Extra Physical Attack)|(+70% Extra Physical Attack)
+S	Yin	My Turn	52		max hp|cooldown	
+H	Yu Zhong	yu-zhong	Fighter	Exp	Physical	Melee	Regen|Damage	hp1=2520|hp15=5460|hp_regen1=11.8|mana1=0|mana15=0|physical_atk1=129|physical_atk15=293|physical_def1=21|physical_def15=84|magic_def1=15|magic_def15=50|movement_spd=245|basic_atk_range=1.8	4	7
+S	Yu Zhong	Cursing Touch			physical damage|lost hp	(+20% Extra Physical Attack)|(+2.5% of target's Lost HP)
+S	Yu Zhong	Dragon Tail	6		physical damage	(+100% Extra Physical Attack)
+S	Yu Zhong	Soul Grip	12		slow|physical damage|basic attack	(+120% Extra Physical Attack)|(+100% Total Physical Attack)
+S	Yu Zhong	Black Dragon Form	85		knock|physical damage	(+80% Total Physical Attack)|(+200% Extra Physical Attack)
+H	Yve	yve	Mage	Mid	Magic	Ranged	Burst|Poke	hp1=2320|hp15=4856|hp_regen1=7.2|mana1=500|mana15=1900|physical_atk1=115|physical_atk15=205|physical_def1=16|physical_def15=63|magic_def1=15|magic_def15=38|movement_spd=245	8	4
+S	Yve	Galactic Power			shield|cooldown	(+50% Total Magic Power)
+S	Yve	Void Blast	3	40	magic damage	(+150% Total Magic Power)
+S	Yve	Void Crystal	14	80	slow|magic damage	(+40% Total Magic Power)|(+10% Total Magic Power)|(up to 40%)
+S	Yve	Real World Manipulation	60	180	slow|immobil|suppress|magic damage	(+150% Total Magic Power)|(+10% Total Magic Power)
+H	Zetian	zetian	Mage	Mid	Magic	Ranged	Damage|Crowd Control	hp1=2380|hp15=4270|hp_regen1=6.8|mana1=500|mana15=1900|physical_atk1=95|physical_def1=17|physical_def15=71|magic_def1=15|magic_def15=50|movement_spd=240|basic_atk_range=5	8	3
+S	Zetian	Celestial Armament			stun|knock|shield|magic damage|spell vamp|cooldown	(+50% Total Magic Power)
+S	Zetian	Phoenix Strike	5	60	magic damage|spell vamp	(+50% Total Magic Power)|(+120% Total Magic Power)
+S	Zetian	Phoenix Descent	15	80	slow|magic damage	(+45% Total Magic Power)|(+10% Total Magic Power)
+S	Zetian	Fury of the Phoenix	90	150	stun|magic damage	(+100% Total Magic Power)
+H	Zhask	zhask	Mage	Mid	Magic	Ranged	Chase|Damage	hp1=2380|hp15=4356|hp_regen1=6.8|mana1=500|mana15=1900|physical_atk1=107|physical_atk15=208|physical_def1=17|physical_def15=65|magic_def1=15|magic_def15=50|movement_spd=250|basic_atk_range=4.5	10	1
+S	Zhask	Decimation				
+S	Zhask	Nightmaric Spawn	13	60	slow|magic damage|basic attack|attack speed	(+ 20%Magic Power)|(+ 20% Extra Attack Speed)
+S	Zhask	Mind Eater	8	50	stun|magic damage	(+100% Total Magic Power)|(+80% Total Magic Power)|(+180% Total Magic Power)
+S	Zhask	Dominator's Descent	48	120		
+H	Zhuxin	zhuxin	Mage	Mid	Magic	Ranged	Damage|Crowd Control	hp1=2440|hp15=4416|hp_regen1=7.2|mana1=1200|physical_atk1=115|physical_atk15=205|physical_def1=18|physical_def15=67|magic_def1=15|magic_def15=50|movement_spd=245|basic_atk_range=4.7	8	4
+S	Zhuxin	Crimson Butterflies				
+S	Zhuxin	Fluttering Grace	12	100	slow|magic damage	(+30% Total Magic Power)
+S	Zhuxin	Lantern Flare	0.5	90	magic damage	(+30% Total Magic Power)|(Magic Bonus increases to 60% against minions)|(+150% Total Magic Power)|(+ 10% captured target's HP)
+S	Zhuxin	Crimson Beacon	60	200	shield|blink|magic damage	(+100% Total Magic Power)|(+10% Total Magic Power)
+H	Zilong	zilong	Fighter|Assassin	Exp	Physical	Melee	Chase|Damage	hp1=2511|hp15=5549|hp_regen1=7|mana1=500|mana15=1900|physical_atk1=123|physical_atk15=249|physical_def1=25|physical_def15=90|magic_def1=15|magic_def15=50|movement_spd=265|basic_atk_range=1.8 / 2.5 (Dragon Flurry)	5	2
+S	Zilong	Dragon Flurry			heal|physical damage|basic attack	(+30% Total Physical Attack)|(+20% Total Physical Attack)|(+80% Total Physical Attack)
+S	Zilong	Spear Flip	12	80	physical damage	(+80% Total Physical Attack)
+S	Zilong	Spear Strike	12	40	physical damage|cooldown	(+60% Total Physical Attack)
+S	Zilong	Supreme Warrior	35	120	slow|attack speed|immunity	
+I	Antique Cuirass	Defense	2170	Dreadnaught Armor|Ares Belt	+920 HP, +40 Physical Defense, +4 HP Regen		Deter	
+I	Arcane Boots	Movement	720	Boots|Mystery Codex	+40 Movement Speed, +15 Magic Power, +10 Magic Penetration			
+I	Ares Belt	Defense	700	Vitality Crystal	+600 HP			
+I	Azure Blade	Magic	600	Magic Necklace|Magic Necklace	+5 Mana Regen, +5% Cooldown Reduction		Judgement	
+I	Berserker's Fury	Attack	2390	Legion Sword|Javelin|Javelin	+60 Physical Attack, +25% Crit Chance	+30% Crit Damage	Doom	
+I	Black Ice Shield	Defense	780	Leather Jerkin|Magic Resist Cloak	+20 Physical Defense, +20 Magic Defense		Fortress Shield	
+I	Blade Armor	Defense	1910	Steel Legplates|Leather Jerkin|Leather Jerkin	+80 Physical Defense	+20% Crit Damage Reduction	Bladed Armor	
+I	Blade of Despair	Attack	3010	Legion Sword|Legion Sword	+160 Physical Attack, +5% Movement Speed		Despair	
+I	Blade of the Heptaseas	Attack	1950	Fury Hammer|Ogre Tomahawk	+70 Physical Attack, +250 HP	+15 Physical Penetration	Ambush	
+I	Blood Wings	Magic	2100	Magic Wand|Magic Wand	+90 Magic Power		Guard	
+I	Bloodlust Axe	Attack	1970	Iron Hunting Bow|Dagger|Iron Hunting Bow	+70 Physical Attack, +10% Cooldown Reduction	+20% Spell Vamp		
+I	Book of Sages	Magic	450		+8 Magic Power, +5% Cooldown Reduction			
+I	Boots	Movement	250		+20 Movement Speed			
+I	Brute Force Breastplate	Defense	2070	Ares Belt|Hero's Ring|Leather Jerkin	+800 HP, +20 Physical Defense, +10% Cooldown Reduction		Brute Force	
+I	Bud of Hope	Magic			+250 HP		Bud of Hope	
+I	Calamity Reaper	Magic	1950	Magic Wand|Azure Blade	+70 Magic Power, +100 Mana, +6 Mana Regen, +10% Cooldown Reduction		Calamity	
+I	Chastise Pauldron	Defense	2100	Steel Legplates|Ares Belt	+900 HP, +40 Physical Defense		Chastise	
+I	Clock of Destiny	Magic	2030	Elegant Gem|Book of Sages|Book of Sages	+45 Magic Power, +400 HP, +400 Mana, +10% Cooldown Reduction		Destiny	
+I	Concentrated Energy	Magic	2020	Mystic Container|Magic Wand|Vitality Crystal	+75 Magic Power, +400 HP	+20% Hybrid Lifesteal	Recharge	
+I	Corrosion Scythe	Attack	2050	Swift Crossbow|Regular Spear	+30 Physical Attack, +30% Attack Speed, +5% Movement Speed		Corrosive	
+I	Cursed Helmet	Defense	1910	Molten Essence|Ares Belt|Magic Resist Cloak	+1200 HP, +20 Magic Defense		Burning Soul	
+I	Dagger	Attack	250		+15 Physical Attack			
+I	Demon Hunter Sword	Attack	2180	Regular Spear|Vampire Mallet|Knife	+35 Physical Attack, +20% Attack Speed		Engulf	
+I	Demon Shoes	Movement	720	Boots|Magic Necklace|Magic Necklace	+40 Movement Speed, +10 Mana Regen		Mysticism	
+I	Divine Glaive	Magic	1970	Magic Wand	+65 Magic Power	+40% Magic Penetration	Spellbreaker	
+I	Dominance Ice	Defense	2010	Black Ice Shield|Leather Jerkin|Magic Resist Cloak	+40 Physical Defense, +40 Magic Defense, +5% Movement Speed		Fortress Shield	
+I	Dreadnaught Armor	Defense	730	Leather Jerkin|Leather Jerkin	+30 Physical Defense		Deter	
+I	Elegant Gem	Magic	700	Power Crystal|Vitality Crystal	+300 HP, +380 Mana		Gift	
+I	Enchanted Talisman	Magic	2070	Tome of Evil|Magic Necklace|Magic Wand	+70 Magic Power, +300 HP, +15% Cooldown Reduction		Mana Spring	
+I	Endless Battle	Attack	2330	Azure Blade|Iron Hunting Bow|Ogre Tomahawk	+60 Physical Attack, +250 HP, +10% Cooldown Reduction, +5% Movement Speed, +5 Mana Regen		Divine Justice	
+I	Exotic Veil	Magic	600	Mystery Codex	+30 Magic Power, +5% Movement Speed			
+I	Expert Gloves	Attack & Magic	500		+30 Adaptive Attack,			
+I	Feather of Heaven	Magic	2030	Swift Crossbow|Book of Sages	+60 Magic Power, +20% Attack Speed, +10% Lifesteal, +5% Cooldown Reduction		Affliction	
+I	Flask of the Oasis	Magic	1850	Magic Wand|Book of Sages|Vitality Crystal	+60 Magic Power, +300 HP, +10% Cooldown Reduction	+12% Healing Effect	Blessing	
+I	Fleeting Time	Attack, Magic & Defense	2050	Hero's Ring|Hero's Ring|Expert Gloves	+30 Adaptive Attack, +600 HP, +15% Cooldown Reduction		Timestream	
+I	Flower of Hope	Magic			+5% Adaptive Attack		Flower of Hope	
+I	Fury Hammer	Attack	830	Dagger	+35 Physical Attack	+12 Physical Penetration		
+I	Genius Wand	Magic	2000	Exotic Veil|Magic Wand	+75 Magic Power, +5% Movement Speed	+10 Magic Penetration	Magic	
+I	Glowing Wand	Magic	2150	Exotic Veil|Mystery Codex|Vitality Crystal	+60 Magic Power, +300 HP, +5% Movement Speed		Scorch	
+I	Golden Staff	Attack	2000	Regular Spear|Dagger|Dagger	+55 Physical Attack, +15% Attack Speed		Swift	
+I	Great Dragon Spear	Attack	2140	Legion Sword|Iron Hunting Bow|Javelin	+70 Physical Attack, +10% Cooldown Reduction, +20% Crit Chance		Supreme Warrior	
+I	Guardian Helmet	Defense	2500	Ares Belt|Ares Belt|Ares Belt	+1800 HP, +20 HP Regen		Recovery	
+I	Haas' Claws	Attack	2020	Vampire Mallet|Rogue Meteor|Dagger	+40 Physical Attack, +15% Attack Speed, +20% Crit Chance	+20% Lifesteal	Frenzy	
+I	Healing Necklace	Defense	140		+4 HP Regen			
+I	Hero's Ring	Defense	450		+150 HP, +5% Cooldown Reduction			
+I	Holy Crystal	Magic	3000	Magic Wand|Magic Wand|Magic Wand	+165 Magic Power		Mystery	
+I	Hunter Strike	Attack	2010	Fury Hammer|Iron Hunting Bow|Dagger	+80 Physical Attack, +10% Cooldown Reduction	+15 Physical Penetration	Retribution	
+I	Ice Queen Wand	Magic	2040	Mystic Container|Exotic Veil|Mystery Codex	+60 Magic Power, +10% Spell Vamp, +300 HP, +7% Movement Speed		Ice Bound	
+I	Immortality	Defense	2120	Ares Belt|Vitality Crystal|Leather Jerkin	+850 HP, +15 Physical Defense		Immortal	
+I	Iron Hunting Bow	Attack	450		+10 Physical Attack, +5% Cooldown Reduction			
+I	Javelin	Attack	320		+8% Crit Chance			
+I	Knife	Attack	280		+10% Attack Speed			
+I	Lantern of Hope	Magic			+20 Magic Power, +4% Movement Speed, +2% Cooldown Reduction		Lantern of Hope	
+I	Leather Jerkin	Defense	220		+14 Physical Defense			
+I	Legion Sword	Attack	910	Dagger|Dagger	+60 Physical Attack			
+I	Lightning Truncheon	Magic	2250	Magic Wand|Book of Sages|Power Crystal	+75 Magic Power, +400 Mana, +10% Cooldown Reduction		Resonate	
+I	Magic Blade	Attack	1050	Dagger|Vampire Mallet	+35 Physical Attack, +10% Lifesteal		Lifeline	
+I	Magic Necklace	Magic	120		+2 Mana Regen			
+I	Magic Potion	Magic	1500				Increase Power	
+I	Magic Resist Cloak	Defense	220		+14 Magic Defense			
+I	Magic Shoes	Movement	720	Boots|Hero's Ring	+40 Movement Speed, +10% Cooldown Reduction, +150 HP			
+I	Magic Wand	Magic	820	Mystery Codex	+45 Magic Power			
+I	Malefic Gun	Attack	2120	Fury Hammer|Knife|Knife	+40 Physical Attack, +20% Attack Speed		Armor Buster	
+I	Malefic Roar	Attack	2060	Legion Sword	+60 Physical Attack		Armor Buster	
+I	Molten Essence	Defense	800	Vitality Crystal	+540 HP		Burning Soul	
+I	Mystery Codex	Magic	300		+15 Magic Power			
+I	Mystic Container	Magic	500	Mystery Codex	+15 Magic Power, +8% Spell Vamp			
+I	Necklace of Durance	Magic	2010	Book of Sages|Elegant Gem|Mystery Codex	+60 Magic Power, +300 HP, +380 Mana, +5% Cooldown Reduction		Gift	
+I	Ogre Tomahawk	Attack	650	Dagger|Vitality Crystal	+25 Physical Attack, +230 HP			
+I	Oracle	Defense	1860	Hero's Ring|Hero's Ring|Vitality Crystal	+850 HP, +20 Physical Defense, +20 Magic Defense, +10% Cooldown Reduction		Bless	
+I	Power Crystal	Magic	220		+280 Mana			
+I	Power Potion	Attack	1500				Increase Power	
+I	Queen's Wings	Defense	2250	Ares Belt|Hero's Ring|Expert Gloves	+750 HP, +30 Adaptive Attack, +10% Cooldown Reduction, +10% Spell Vamp		Demonize	
+I	Radiant Armor	Defense	1880	Silence Robe|Magic Resist Cloak|Healing Necklace	+950 HP, +40 Magic Defense, +12 HP Regen		Holy Blessing	
+I	Rapid Boots	Movement	720	Boots|Healing Necklace|Healing Necklace	+55 Movement Speed, +35% Slow Reduction, +12 HP Regen			
+I	Regular Spear	Attack	600	Knife|Dagger	+20 Physical Attack, +10% Attack Speed			
+I	Rock Potion	Defense	1500				Increase Power	
+I	Rogue Meteor	Attack	900	Knife|Javelin	+15% Attack Speed, +10% Crit Chance			
+I	Rose Gold Meteor	Attack	2030	Magic Blade|Knife	+30 Physical Attack, +20% Attack Speed, +10% Lifesteal		Dragon Scale	
+I	Scarlet Phantom	Attack	2020	Rogue Meteor|Javelin	+30 Physical Attack, +20% Attack Speed, +25% Crit Chance		Frenzy	
+I	Sea Halberd	Attack	2050	Legion Sword|Regular Spear	+80 Physical Attack, +20% Attack Speed		Lifebane	
+I	Shadow Twinblades	Magic	1960	Exotic Veil|Mystic Container	+75 Magic Power, +15% Magic Lifesteal, +5% Movement Speed		Assassination	
+I	Shimmering Lantern	Magic			+20 Magic Power, +5% Movement Speed			
+I	Silence Robe	Defense	1020	Vitality Crystal|Magic Resist Cloak	+540 HP, +23 Magic Defense			
+I	Sky Piercer	Attack & Magic	1500	Expert Gloves|Expert Gloves	+60 Adaptive Attack, +15 Movement Speed		Lethality	
+I	Starlium Scythe	Magic	2120	Azure Blade|Book of Sages|Magic Wand	+75 Magic Power, +10% Cooldown Reduction, +8% Hybrid Lifesteal, +6 Mana Regen		Crisis	
+I	Steel Legplates	Defense	630	Leather Jerkin	+35 Physical Defense			
+I	Swift Boots	Movement	720	Boots|Knife	+40 Movement Speed, +15% Attack Speed			
+I	Swift Crossbow	Attack	1000	Knife|Knife	+20% Attack Speed		Crossbow	
+I	Thunder Belt	Defense	1820	Ares Belt|Leather Jerkin|Magic Resist Cloak	+600 HP, +15 Physical Defense, +15 Magic Defense, +20 Movement Speed		Thunderbolt	
+I	Tome of Evil	Magic	950	Magic Necklace|Book of Sages	+30 Magic Power, +2 Mana Regen, +10% Cooldown Reduction			
+I	Tough Boots	Movement	720	Boots|Magic Resist Cloak	+40 Movement Speed, +18 Magic Defense		Fortitude	
+I	Twilight Armor	Defense	2100	Ares Belt|Ares Belt|Leather Jerkin	+1200 HP, +15 Physical Defense		Twilight	
+I	Valkyrie's Shield	Defense	2150	Silence Robe|Vitality Crystal	+900 HP, +48 Magic Defense, +2 HP Regen		Shield	
+I	Vampire Mallet	Attack	400		+8 Physical Attack, +8% Lifesteal			
+I	Vitality Crystal	Defense	300		+230 HP			
+I	War Axe	Attack	2100	Ogre Tomahawk|Iron Hunting Bow|Hero's Ring	+35 Physical Attack, +400 HP, +10% Cooldown Reduction, +8% Hybrid Lifesteal		Fighting Spirit	
+I	Warrior Boots	Movement	720	Boots|Leather Jerkin	+40 Movement Speed, +18 Physical Defense		Valor	
+I	Wind of Nature	Attack	1910	Regular Spear|Vampire Mallet	+30 Physical Attack, +20% Attack Speed, +10% Lifesteal			Wind Chant
+I	Windtalker	Attack	1880	Rogue Meteor|Knife	+35% Attack Speed, +20% Crit Chance, +20 Movement Speed		Typhoon	
+I	Winter Crown	Attack & Magic	1910	Expert Gloves|Hero's Ring|Vitality Crystal	+45 Adaptive Attack, +400 HP, +5% Cooldown Reduction			Frozen
+I	Wishing Lantern	Magic	2250	Magic Wand|Book of Sages|Power Crystal	+75 Magic Power, +400 Mana, +10% Cooldown Reduction		Butterfly Goddess	
