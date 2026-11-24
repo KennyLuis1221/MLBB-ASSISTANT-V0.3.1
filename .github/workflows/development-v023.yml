@@ -1,0 +1,306 @@
+name: Validar desenvolvimento V0.14 (sem publicar APK)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [development-v023]
+    paths:
+      - 'updates/v0_14/**'
+      - '.github/workflows/development-v023.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Baixar arquivos do repositório
+        uses: actions/checkout@v4
+
+      - name: Extrair projeto Android do ZIP
+        shell: bash
+        run: |
+          test -f MLBB_ASSISTANT_CODIGO_GITHUB.zip
+          unzip -q MLBB_ASSISTANT_CODIGO_GITHUB.zip
+          test -f android-app/app/build.gradle.kts
+
+      - name: Aplicar V0.4 e validar catalogo
+        shell: bash
+        run: |
+          cp updates/v0_4/MainActivity.kt android-app/app/src/main/java/com/mlbb/assistant/MainActivity.kt
+          cp updates/v0_4/HeroCatalog.kt android-app/app/src/main/java/com/mlbb/assistant/HeroCatalog.kt
+          cp updates/v0_4/multihero_engine.py server/multihero_engine.py
+          cp updates/v0_4/test_multihero.py server/test_multihero.py
+          python3 updates/v0_4/export_heroes.py
+          python3 updates/v0_4/patch_server.py
+          python3 -m py_compile server/app.py server/multihero_engine.py server/vision_bridge.py
+          PYTHONPATH=server python3 - <<'PY'
+          from multihero_engine import CATALOG, recommend_multi, suggest_draft
+          assert len(CATALOG) >= 120, len(CATALOG)
+          assert recommend_multi("Layla", [], True, False, False)["recommendations"][0]["item"] == "Malefic Roar"
+          assert recommend_multi("Kagura", [], False, False, False)["recommendations"]
+          assert len(suggest_draft("Ouro", [], [], ["Beatrix", "Brody"])) == 3
+          print("Validado:", len(CATALOG), "herois")
+          PY
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("android-app/app/build.gradle.kts")
+          s = p.read_text(encoding="utf-8").replace('versionCode = 4', 'versionCode = 5').replace('versionName = "0.3.1"', 'versionName = "0.4.0"')
+          p.write_text(s, encoding="utf-8")
+          PY
+
+      - name: Aplicar V0.5 com OCR local para uso sem servidor
+        shell: bash
+        run: |
+          cp updates/v0_5/MainActivity.kt android-app/app/src/main/java/com/mlbb/assistant/MainActivity.kt
+          cp updates/v0_5/OfflineTextAnalyzer.kt android-app/app/src/main/java/com/mlbb/assistant/OfflineTextAnalyzer.kt
+          python3 - <<'PY'
+          from pathlib import Path
+          service = Path("android-app/app/src/main/java/com/mlbb/assistant/ProjectionService.kt")
+          s = service.read_text(encoding="utf-8")
+          original = "    private var projection: MediaProjection? = null"
+          replacement = original + "\n    private val offlineAnalyzer by lazy { OfflineTextAnalyzer() }"
+          if original not in s or "OfflineTextAnalyzer" in s:
+              raise SystemExit("Fonte original inesperado para ProjectionService")
+          s = s.replace(original, replacement)
+          previous = "val result = UploadClient.analyze(url, token, jpeg, sessionId, heroHint, armor, healing, magic)"
+          replacement = (
+              "val result = if (url.isBlank()) {\n"
+              "                        offlineAnalyzer.analyze(jpeg, heroHint)\n"
+              "                    } else {\n"
+              "                        try {\n"
+              "                            UploadClient.analyze(url, token, jpeg, sessionId, heroHint, armor, healing, magic)\n"
+              "                        } catch (network: Exception) {\n"
+              "                            offlineAnalyzer.analyze(jpeg, heroHint).copy(\n"
+              "                                visionStatus = \"Servidor indisponível; OCR local experimental\"\n"
+              "                            )\n"
+              "                        }\n"
+              "                    }"
+          )
+          if previous not in s:
+              raise SystemExit("Chamada de rede antiga não encontrada")
+          s = s.replace(previous, replacement)
+          s = s.replace("        executor.shutdownNow()", "        executor.shutdownNow()\n        if (this::offlineAnalyzer.isInitialized) offlineAnalyzer.close()") if False else s
+          service.write_text(s, encoding="utf-8")
+          app = Path("android-app/app/build.gradle.kts")
+          gradle = app.read_text(encoding="utf-8")
+          if 'com.google.mlkit:text-recognition' not in gradle:
+              gradle += '\n\ndependencies {\n    implementation("com.google.mlkit:text-recognition:16.0.1")\n}\n'
+          gradle = gradle.replace("versionCode = 5", "versionCode = 6").replace('versionName = "0.4.0"', 'versionName = "0.5.0"')
+          app.write_text(gradle, encoding="utf-8")
+          print("V0.5 aplicado: captura local sem servidor, ML Kit OCR incluído")
+          PY
+
+      - name: Aplicar V0.6 - reconhecimento por icones e recomendacoes dinamicas
+        shell: bash
+        run: |
+          mkdir -p android-app/app/src/main/assets
+          cp updates/v0_6/icon_sketches.tsv android-app/app/src/main/assets/icon_sketches.tsv
+          cp updates/v0_6/VideoIconMatcher.kt android-app/app/src/main/java/com/mlbb/assistant/
+          cp updates/v0_6/LiveBuildEngine.kt android-app/app/src/main/java/com/mlbb/assistant/
+          cp updates/v0_6/OfflineTextAnalyzer.kt android-app/app/src/main/java/com/mlbb/assistant/
+          cp updates/v0_6/multihero_engine.py server/multihero_engine.py
+          cp updates/v0_6/test_v06.py server/test_v06.py
+          cp updates/v0_6/Dockerfile server/Dockerfile
+          cp updates/v0_6/render.yaml render.yaml
+          python3 updates/v0_6/patch_backend.py
+          python3 - <<'PY'
+          from pathlib import Path
+          service=Path("android-app/app/src/main/java/com/mlbb/assistant/ProjectionService.kt")
+          x=service.read_text(encoding="utf-8")
+          assert "OfflineTextAnalyzer()" in x, "Construtor da V0.5 mudou"
+          x=x.replace("OfflineTextAnalyzer()", "OfflineTextAnalyzer(this)")
+          x=x.replace("private var intervalMs = 25_000L", "private var intervalMs = 12_000L")
+          x=x.replace('prefs.getInt("interval", 25)', 'prefs.getInt("interval", 12)')
+          x=x.replace('.coerceIn(15, 60)', '.coerceIn(10, 60)')
+          service.write_text(x,encoding="utf-8")
+          main=Path("android-app/app/src/main/java/com/mlbb/assistant/MainActivity.kt")
+          x=main.read_text(encoding="utf-8")
+          x=x.replace("Versão 0.5 de testes.", "Versão 0.6 de testes.")
+          x=x.replace("Análise local disponível • IA online não conectada",
+            "Análise local automática • servidor online opcional")
+          x=x.replace("Intervalo entre capturas (15 a 60 segundos)",
+            "Intervalo entre capturas (10 a 60 segundos)")
+          x=x.replace('prefs.getInt("interval", 25)', 'prefs.getInt("interval", 12)')
+          x=x.replace('intValue !in 15..60', 'intValue !in 10..60')
+          x=x.replace('Use um intervalo de 15 a 60 segundos',
+            'Use um intervalo de 10 a 60 segundos')
+          main.write_text(x,encoding="utf-8")
+          overlay=Path("android-app/app/src/main/java/com/mlbb/assistant/OverlayPanel.kt")
+          x=overlay.read_text(encoding="utf-8").replace("VISÃO ONLINE • TESTE",
+            "VISÃO LOCAL • EXPERIMENTAL")
+          overlay.write_text(x,encoding="utf-8")
+          gradle=Path("android-app/app/build.gradle.kts")
+          x=gradle.read_text(encoding="utf-8")
+          assert "versionCode = 6" in x and 'versionName = "0.5.0"' in x
+          x=x.replace("versionCode = 6","versionCode = 7")
+          x=x.replace('versionName = "0.5.0"','versionName = "0.6.0"')
+          gradle.write_text(x,encoding="utf-8")
+          PY
+          python3 -m py_compile server/app.py server/multihero_engine.py server/vision_bridge.py
+          PYTHONPATH=server python3 - <<'PY'
+          from multihero_engine import CATALOG,recommend_multi,suggest_draft
+          assert len(CATALOG) >= 120
+          x = recommend_multi("Layla", [], False, False, False,
+              enemy_items=["Antique Cuirass","Blade Armor"])
+          assert x["recommendations"][0]["item"] == "Malefic Roar"
+          m = recommend_multi("Kagura", [], False, False, False,
+              enemy_items=["Athena's Shield","Radiant Armor"])
+          assert m["recommendations"][0]["item"] == "Divine Glaive"
+          assert len(suggest_draft("Roam",[],[],[],[])) == 3
+          print("Motor de recomendacao V0.6 validado")
+          PY
+          python3 - <<'PY'
+          import base64
+          from pathlib import Path
+          lines=Path("android-app/app/src/main/assets/icon_sketches.tsv").read_text().splitlines()
+          assert len(lines) >= 190
+          for s in lines:
+              p=s.split("|")
+              assert len(p)==3 and p[0] in ("i","h") and len(base64.b64decode(p[2]))==27
+          print(len(lines),"esbocos de icones validados")
+          PY
+
+      - name: Aplicar V0.6.1 - sugestões visíveis e diagnóstico honesto
+        shell: bash
+        run: |
+          cp updates/v0_6_1/MainActivity.kt android-app/app/src/main/java/com/mlbb/assistant/MainActivity.kt
+          cp updates/v0_6_1/OfflineTextAnalyzer.kt android-app/app/src/main/java/com/mlbb/assistant/OfflineTextAnalyzer.kt
+          python3 updates/v0_6_1/apply_fix.py
+          python3 - <<'PY'
+          from pathlib import Path
+          base = Path("android-app/app/src/main/java/com/mlbb/assistant")
+          main = (base / "MainActivity.kt").read_text()
+          overlay = (base / "OverlayPanel.kt").read_text()
+          local = (base / "OfflineTextAnalyzer.kt").read_text()
+          assert "Salvar meu herói de teste" in main
+          assert "SUGESTÕES INICIAIS POR FUNÇÃO" in main
+          assert "SUGESTÕES DE HERÓIS" in overlay
+          assert "draftSuggestions" in local
+          assert 'versionName = "0.6.1"' in Path("android-app/app/build.gradle.kts").read_text()
+          print("Validações de presença V0.6.1: OK")
+          PY
+
+      - name: Aplicar V0.7 - visão estruturada e painel
+        shell: bash
+        env:
+          MLBB_DEFAULT_API_URL: https://mlbb-assistant-vision.onrender.com
+        run: |
+          cp updates/v0_7/*.kt android-app/app/src/main/java/com/mlbb/assistant/
+          cp updates/v0_7/references_v7.txt android-app/app/src/main/assets/
+          cp updates/v0_7/cloud_sessions.py server/
+          python3 updates/v0_7/apply_v7.py
+          python3 updates/v0_7/patch_cloud.py
+          python3 -m py_compile server/*.py
+          python3 - <<'PY'
+          from pathlib import Path
+          import base64
+          rows=Path("android-app/app/src/main/assets/references_v7.txt").read_text().splitlines()
+          assert len(rows)==4
+          for a,b in [(0,1),(2,3)]:
+              names=rows[a].split("|")
+              assert len(names)==len(set(names))
+              assert len(base64.b64decode(rows[b],validate=True))==20*len(names)
+              print("Referências:",len(names))
+          PY
+
+      - name: Aplicar V0.7.1 e testar produção
+        run: |
+          python3 deploy/harden_backend.py
+          python3 updates/v0_7_1/backend.py
+          python3 updates/v0_7_1/android.py
+          cp updates/v0_7_1/test_production.py server/
+          cp updates/v0_7_2/*.py server/
+          python3 updates/v0_7_2/apply.py
+          python3 -m pip install -r server/requirements.txt pytest pytest-asyncio
+          cd server
+          python3 -m pytest -q
+      - name: Aplicar App Base V0.8
+        run: |
+          cp updates/v0_8/StrategicEngine.kt updates/v0_8/DraftRules.kt android-app/app/src/main/java/com/mlbb/assistant/
+          mkdir -p android-app/app/src/test/java/com/mlbb/assistant
+          cp updates/v0_8/StrategicEngineTest.kt android-app/app/src/test/java/com/mlbb/assistant/
+          python3 updates/v0_8/apply.py
+      - name: Aplicar revisão V0.8.1
+        run: |
+          cp updates/v0_8_1/ItemReference.kt updates/v0_8_1/ObservationParser.kt android-app/app/src/main/java/com/mlbb/assistant/
+          cp updates/v0_8_1/Review081Test.kt android-app/app/src/test/java/com/mlbb/assistant/
+          python3 updates/v0_8_1/apply.py
+          python3 updates/v0_8_1/recover_refs.py
+      - name: Integrar V0.9 a V0.13
+        run: |
+          cp updates/v0_13/GameData13.kt updates/v0_13/Strategy13.kt android-app/app/src/main/java/com/mlbb/assistant/
+          cp updates/v0_13/Strategy13Test.kt android-app/app/src/test/java/com/mlbb/assistant/
+          python3 updates/v0_13/import_data.py
+          python3 updates/v0_13/apply.py
+          cp updates/v0_13/BoardCalibration.kt updates/v0_13/CalibrationView.kt android-app/app/src/main/java/com/mlbb/assistant/
+          cp updates/v0_13/BoardCalibrationTest.kt android-app/app/src/test/java/com/mlbb/assistant/
+          python3 updates/v0_13/apply_calibration.py
+          cp updates/v0_13/DATA_ATTRIBUTION.md android-app/app/src/main/assets/
+      - name: Auditoria V0.13.1
+        run: |
+          cp updates/v0_13_1/Recipe131.kt updates/v0_13_1/Manual131.kt android-app/app/src/main/java/com/mlbb/assistant/
+          cp updates/v0_13_1/Audit131Test.kt android-app/app/src/test/java/com/mlbb/assistant/
+          python3 updates/v0_13_1/apply.py
+          python3 -m pip install Pillow
+          python3 updates/v0_13_1/complete_refs.py
+          python3 updates/v0_13_1/apply_refs.py
+          cp updates/v0_13_1/README.md android-app/app/src/main/assets/AUDIT_131.md
+      - name: Integrar combate offline V0.13.2
+        run: |
+          cp updates/v0_13_2/Combat132.kt updates/v0_13_2/Tactics132.kt android-app/app/src/main/java/com/mlbb/assistant/
+          cp updates/v0_13_2/Combat132Test.kt android-app/app/src/test/java/com/mlbb/assistant/
+          python3 updates/v0_13_2/apply.py
+          cp updates/v0_13_2/README.md android-app/app/src/main/assets/AUDIT_132.md
+      - name: Integrar módulos de desenvolvimento V0.14
+        run: |
+          cp updates/v0_14/Loadout14.kt updates/v0_14/Timeline14.kt updates/v0_14/Draft14.kt android-app/app/src/main/java/com/mlbb/assistant/
+          cp updates/v0_14/Development14Test.kt android-app/app/src/test/java/com/mlbb/assistant/
+          python3 updates/v0_14/apply.py
+      - name: Configurar Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # O runner ubuntu-latest já disponibiliza o Android SDK.
+      # Evita android-actions/setup-android@v3, que tenta baixar o pacote removido "tools".
+      - name: Verificar Android SDK do GitHub
+        shell: bash
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          test -d "$ANDROID_HOME"
+          if command -v sdkmanager >/dev/null 2>&1; then
+            sdkmanager --version
+          else
+            "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --version
+          fi
+
+      - name: Instalar plataforma Android 35
+        shell: bash
+        run: |
+          if command -v sdkmanager >/dev/null 2>&1; then
+            SDKMANAGER="$(command -v sdkmanager)"
+          else
+            SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          fi
+          "$SDKMANAGER" --install 'platforms;android-35' 'build-tools;35.0.0'
+
+      - name: Preparar Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Compilar APK de teste
+        working-directory: android-app
+        run: gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug
+
+      - name: Publicar relatórios de testes Kotlin
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: DEV-V014-TESTES
+          path: android-app/app/build/test-results/testDebugUnitTest/*.xml
+          if-no-files-found: warn

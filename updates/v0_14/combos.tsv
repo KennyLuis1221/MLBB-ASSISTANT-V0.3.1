@@ -1,0 +1,266 @@
+Q	Aamon	laning	Slayer Shards|@BASIC|Soul Shards|@BASIC
+Q	Aamon	teamfight	Slayer Shards|@BASIC|Soul Shards|@BASIC|Endless Shards
+Q	Akai	laning	Headbutt|Body Slam|@BASIC
+Q	Akai	teamfight	Headbutt|Heavy Spin|Body Slam
+Q	Aldous	laning	Contract: Soul Steal|Contract: Explosion|@BASIC|Contract: Soul Steal|@BASIC
+Q	Aldous	teamfight	Contract: Chase Fate|Contract: Chase Fate|Contract: Soul Steal|Contract: Explosion|@BASIC
+Q	Alice	laning	Crimson Gleam|Crimson Gleam|Doom Waltz|Throne of Ruin
+Q	Alice	teamfight	Crimson Gleam|Crimson Gleam|Doom Waltz|Throne of Ruin
+Q	Alpha	laning	Rotary Impact|Force Swing|@BASIC
+Q	Alpha	teamfight	Spear of Alpha|Force Swing|Rotary Impact|@BASIC
+Q	Alucard	laning	Groundsplitter|@BASIC|Whirling Smash|@BASIC
+Q	Alucard	teamfight	Fission Wave|@BASIC|Groundsplitter|@BASIC|Whirling Smash|@BASIC|Fission Wave
+Q	Angela	laning	Love Waves|Puppet-on-a-String|Love Waves
+Q	Angela	teamfight	Heartguard|Love Waves|Puppet-on-a-String|Love Waves
+Q	Argus	laning	Demonic Grip|Meteoric Sword|@BASIC|Demonic Grip
+Q	Argus	teamfight	Demonic Grip|Demonic Grip|Meteoric Sword|@BASIC|Eternal Evil|@BASIC
+Q	Arlott	laning	Vengeance|Dauntless Strike|Vengeance
+Q	Arlott	teamfight	Vengeance|Final Slash|Vengeance|Dauntless Strike|Vengeance
+Q	Atlas	laning	Perfect Match|Annihilate
+Q	Atlas	teamfight	Perfect Match|Fatal Links|Annihilate
+Q	Aulus	teamfight	Aulus, Charge!|The Power of Axe|The Power of Axe|Cleaving Axe|@BASIC|@BASIC
+Q	Aulus		Aulus, Charge!|The Power of Axe|@BASIC|The Power of Axe|@BASIC|Cleaving Axe|@BASIC
+Q	Aurora	laning	Frosty Breeze|Hailstone Blast
+Q	Aurora	teamfight	Frigid Glacier|Frosty Breeze|Hailstone Blast
+Q	Badang	laning	Fist Wind|Fist Break|Fist Wind|@BASIC
+Q	Badang	teamfight	Fist Break|Fist Crack|Fist Wind|@BASIC
+Q	Balmond	laning	Soul Lock|Cyclone Sweep|@BASIC|Lethal Counter
+Q	Balmond	teamfight	Soul Lock|Cyclone Sweep|Lethal Counter
+Q	Bane	laning	Sea Ink|@BASIC|Crab Claw Cannon|@BASIC|Sea Ink|@BASIC
+Q	Bane	teamfight	Sea Ink|Deadly Catch|@BASIC|Sea Ink|@BASIC|Crab Claw Cannon|@BASIC
+Q	Barats	laning	So-Called Teamwork|Missile "Expert"|@BASIC
+Q	Barats	teamfight	So-Called Teamwork|Missile "Expert"|Detona's Welcome|@BASIC
+Q	Baxia	laning	Baxia-Shield Unity|Shield of Spirit|@BASIC
+Q	Baxia	teamfight	Baxia-Shield Unity|Tortoise’s Puissance|Shield of Spirit|@BASIC
+Q	Beatrix	laning	@BASIC|Tactical Reposition|@BASIC|Masterful Gunner|@BASIC
+Q	Beatrix	teamfight	Bennett's Rage|Masterful Gunner|Nibiru's Passion|@BASIC|Tactical Reposition|@BASIC
+Q	Belerick	laning	Nature's Strike|@BASIC|Ancient Seed
+Q	Belerick	teamfight	Nature's Strike|Wrath of Dryad|Ancient Seed
+Q	Benedetta	laning	@BASIC|Phantom Slash|An Eye for An Eye|@BASIC
+Q	Benedetta	teamfight	@BASIC|Alecto: Final Blow|Phantom Slash|An Eye for An Eye
+Q	Brody	laning	Abyss Impact|@BASIC|Corrosive Strike|Torn-Apart Memory
+Q	Brody	teamfight	Abyss Impact|@BASIC|Torn-Apart Memory|@BASIC|Corrosive Strike|@BASIC
+Q	Bruno	laning	Volley Shot|@BASIC|Slide|@BASIC
+Q	Bruno	teamfight	Volley Shot|@BASIC|Worldie|@BASIC|Slide|@BASIC
+Q	Carmilla	laning	Bloodbath|Crimson Flower
+Q	Carmilla	teamfight	Curse of Blood|Bloodbath|Crimson Flower
+Q	Cecilion	laning	Sanguine Claws|Bat Impact
+Q	Cecilion	teamfight	Bats Feast|Bat Impact|Sanguine Claws|Bat Impact
+Q	Chang'e	laning	Crescent Moon|@BASIC|Starmoon Shockwave|Meteor Shower
+Q	Chang'e	teamfight	Crescent Moon|Starmoon Shockwave|Meteor Shower
+Q	Chip	laning	Overtime|@BASIC|Crash Course|@BASIC
+Q	Chip	teamfight	Overtime|@BASIC|Shortcut|Crash Course|@BASIC
+Q	Chou	laning	Shunpo|Jeet Kune Do|Shunpo|The Way of Dragon
+Q	Chou	teamfight	Shunpo|Jeet Kune Do|The Way of Dragon
+Q	Cici	laning	@BASIC|Yo-Yo Blitz|Buoyant Bounce
+Q	Cici	teamfight	Curtain Call|Buoyant Bounce|Yo-Yo Blitz
+Q	Claude	laning	Art of Thievery|@BASIC|Battle Mirror Image|Blazing Duet
+Q	Claude	teamfight	Art of Thievery|Battle Mirror Image|Blazing Duet
+Q	Clint	laning	Quick Draw|@BASIC|Trapping Recoil|@BASIC
+Q	Clint	teamfight	Grenade Bombardment|@BASIC|Quick Draw|@BASIC|Trapping Recoil|@BASIC
+Q	Cyclops	laning	Planets Attack|Stardust Shock
+Q	Cyclops	teamfight	Star Power Lockdown|Planets Attack|Stardust Shock
+Q	Diggie	laning	Reverse Time|Auto Alarm Bomb
+Q	Diggie	teamfight	Auto Alarm Bomb|Reverse Time|Time Journey
+Q	Dyrroth	laning	Spectre Step|Spectre Step|@BASIC|Burst Strike
+Q	Dyrroth	teamfight	Spectre Step|Spectre Step|@BASIC|Burst Strike|Abysm Strike
+Q	Edith	laning	Onward|Earth Shatter|@BASIC
+Q	Edith	teamfight	Onward|Earth Shatter|Primal Wrath|Lightning Bolt|Divine Retribution|@BASIC
+Q	Esmeralda	laning	Frostmoon Shield|Stardust Dance|@BASIC|Frostmoon Shield|Stardust Dance|@BASIC
+Q	Esmeralda	teamfight	Falling Starmoon|Frostmoon Shield|Stardust Dance|@BASIC
+Q	Estes	laning	Domain of Moon Goddess|Moonlight Immersion
+Q	Estes	teamfight	Domain of Moon Goddess|Blessing of Moon Goddess|Moonlight Immersion
+Q	Eudora	laning	Ball Lightning|Thunder’s Wrath|Forked Lightning
+Q	Eudora	teamfight	Forked Lightning|Ball Lightning|Thunder’s Wrath|Forked Lightning
+Q	Fanny	laning	Steel Cable|Tornado Strike|Steel Cable|Cut Throat
+Q	Fanny	teamfight	Steel Cable|Cut Throat
+Q	Faramis	laning	Shadow Stampede|Ghost Bursters|Shadow Stampede
+Q	Faramis	teamfight	Nether Realm|Shadow Stampede|Shadow Stampede|Ghost Bursters
+Q	Floryn	laning	Sow|Sprout
+Q	Floryn	teamfight	Sow|Sprout|Bloom
+Q	Franco	laning	Iron Hook|Fury Shock|Bloody Hunt
+Q	Franco	teamfight	Bloody Hunt|Iron Hook|Fury Shock|@BASIC
+Q	Fredrinn	laning	Brave Assault|@BASIC|Piercing Strike|@BASIC
+Q	Fredrinn	teamfight	Brave Assault|@BASIC|Piercing Strike|Energy Eruption|Piercing Strike|Brave Assault|Appraiser's Wrath
+Q	Freya	laning	Leap of Faith|Valkyrie Slash|@BASIC|Valkyrie Slash|@BASIC
+Q	Freya	teamfight	Valkyrie Descent|Leap of Faith|Valkyrie Slash|@BASIC|Valkyrie Slash|@BASIC
+Q	Gatotkaca	laning	Unbreakable|Blast Iron Fist|@BASIC
+Q	Gatotkaca	teamfight	Avatar of the Guardian|Unbreakable|Blast Iron Fist|@BASIC
+Q	Gloo	laning	Slam, Slam|Spread, Spread|Slam, Slam
+Q	Gloo	teamfight	Slam, Slam|Spread, Spread|Slam, Slam|Grab, Grab|Grab, Grab|Slam, Slam|Spread, Spread
+Q	Gord	laning	Mystic Projectile|Mystic Injunction|Mystic Gush
+Q	Gord	teamfight	Mystic Projectile|Mystic Injunction|Mystic Gush
+Q	Granger	laning	Rhapsody|Rondo|Rhapsody
+Q	Granger	teamfight	Death Sonata|Rhapsody|Death Sonata|Rondo|Rhapsody
+Q	Grock	laning	Earthen Rampart|Mighty Swing|Tectonic Charge|@BASIC|@BASIC
+Q	Grock	teamfight	Earthen Rampart|Tectonic Charge|Mighty Swing|@BASIC|@BASIC
+Q	Guinevere	laning	Energy Wave|@BASIC|Spatial Migration|Violet Requiem
+Q	Guinevere	teamfight	Spatial Migration|Violet Requiem|@UNKNOWN|Energy Wave
+Q	Gusion	laning	Sword Spike|Shadowblade Slaughter|Sword Spike|Shadowblade Slaughter|@BASIC
+Q	Gusion	teamfight	Shadowblade Slaughter|Incandescence|Shadowblade Slaughter|Sword Spike|Sword Spike|Shadowblade Slaughter|@BASIC
+Q	Hanabi	laning	Ninjutsu: Soul Scroll|@BASIC|Ninjutsu: Equinox|@BASIC
+Q	Hanabi	teamfight	Ninjutsu: Soul Scroll|Forbidden Jutsu: Higanbana|@BASIC|Ninjutsu: Equinox|@BASIC
+Q	Hanzo	laning	Forbidden Ninjutsu: Black Mist|@BASIC|Forbidden Ninjutsu: Soul Snatch
+Q	Hanzo	teamfight	Kinjutsu: Pinnacle Ninja|Forbidden Ninjutsu: Black Mist|@BASIC|Forbidden Ninjutsu: Soul Snatch
+Q	Harith	laning	Chrono Dash|@BASIC|Synchro Fission
+Q	Harith	teamfight	Chrono Dash|Zaman Force|Synchro Fission|Chrono Dash|@BASIC
+Q	Harley	laning	Space Escape|Poker Trick|@BASIC|Space Escape
+Q	Harley	teamfight	Space Escape|Deadly Magic|Poker Trick|Space Escape
+Q	Hayabusa	laning	Ninjutsu: Quad Shadow|Ninjutsu: Phantom Shuriken|Ninjutsu: Quad Shadow|Ninjutsu: Quad Shadow|Ninjutsu: Phantom Shuriken|Ougi: Shadow Kill
+Q	Hayabusa	teamfight	Ninjutsu: Quad Shadow|Ninjutsu: Phantom Shuriken|Ninjutsu: Quad Shadow|Ougi: Shadow Kill|Ninjutsu: Phantom Shuriken|Ninjutsu: Quad Shadow
+Q	Helcurt	laning	Hidden Terror|@BASIC|Deadly Stinger
+Q	Helcurt	teamfight	Dark Night Falls|Hidden Terror|@BASIC|Deadly Stinger
+Q	Hilda	laning	Combat Ritual|@BASIC|Art of Hunting|Power of Wildness
+Q	Hilda	teamfight	Power of Wildness|Art of Hunting|Combat Ritual|@BASIC
+Q	Hirara	teamfight	Meisen-e|Infernal Torrent|Falling Maple|Kaerazu
+Q	Hirara		Meisen-e|Infernal Torrent|Falling Maple
+Q	Hylos	laning	Law and Order|Ring of Punishment|@BASIC
+Q	Hylos	teamfight	Glorious Pathway|Law and Order|Ring of Punishment|@BASIC
+Q	Irithel	laning	Strafe|@BASIC|Force of The Queen|@BASIC|Heavy Crossbow|@BASIC
+Q	Irithel	teamfight	Heavy Crossbow|Strafe|@BASIC|Force of The Queen
+Q	Ixia	laning	Star Helix|Dual Beam|@BASIC
+Q	Ixia	teamfight	Full Barrage|@BASIC|Star Helix|Dual Beam
+Q	Jawhead	laning	Ejector|Smart Missiles|@BASIC|Ejector
+Q	Jawhead	teamfight	Ejector|Smart Missiles|Unstoppable Force|Ejector
+Q	Johnson	laning	Impact Wrench|Electromagnetic Waves|@BASIC
+Q	Johnson	teamfight	Full Throttle|Electromagnetic Waves|Impact Wrench
+Q	Joy	laning	Look, Leonin Crystal!|Meow, Rhythm of Joy!
+Q	Joy	teamfight	Look, Leonin Crystal!|Meow, Rhythm of Joy!|Ha, Electrifying Beats!
+Q	Julian	laning	Sword|Chain|Enhanced Scythe|@BASIC
+Q	Julian	teamfight	Scythe|Sword|Enhanced Chain
+Q	Kadita	laning	Ocean Ode|Ocean Ode|Breath of the Ocean
+Q	Kadita	teamfight	Ocean Ode|Breath of the Ocean|Rough Waves
+Q	Kagura	laning	Seimei Umbrella Open|Rasho Umbrella Flee|Rasho Umbrella Flee
+Q	Kagura	teamfight	Seimei Umbrella Open|Yin Yang Overturn|Seimei Umbrella Open|Rasho Umbrella Flee|Yin Yang Overturn|Rasho Umbrella Flee
+Q	Kaja	laning	Ring of Order|Soaring Wings|@BASIC
+Q	Kaja	teamfight	Soaring Wings|Ring of Order|Divine Binding
+Q	Kalea	laning	Tidal Strike|Wavebreaker|@BASIC
+Q	Kalea	teamfight	Tidal Strike|Tidal Strike|Tsunami Slam|Wavebreaker|@BASIC
+Q	Karina	laning	Dance of Blades|@BASIC|Dance of Death|@BASIC
+Q	Karina	teamfight	Dance of Blades|Shadow Assault|Dance of Death|Shadow Assault|@BASIC
+Q	Karrie	laning	Spinning Lightwheel|@BASIC|Phantom Step|@BASIC
+Q	Karrie	teamfight	Speedy Lightwheel|Spinning Lightwheel|@BASIC|Phantom Step|@BASIC
+Q	Khaleed	laning	@BASIC|Desert Tornado|@BASIC
+Q	Khaleed	teamfight	Raging Sandstorm|@BASIC|Desert Tornado|@BASIC|Quicksand Guard
+Q	Khufra	laning	Tyrant's Revenge|@BASIC|Bouncing Ball
+Q	Khufra	teamfight	Tyrant's Revenge|Tyrant's Rage|Bouncing Ball
+Q	Kimmy	laning	Anti-Grav Thruster|Starlium Beam|@BASIC
+Q	Kimmy	teamfight	Traction Pulse|Starlium Beam|@BASIC|Anti-Grav Thruster
+Q	Lancelot	laning	Puncture|Thorned Rose
+Q	Lancelot	teamfight	Puncture|Thorned Rose|Phantom Execution|Puncture
+Q	Lapu-Lapu	laning	Justice Blades|Jungle Warrior|@BASIC
+Q	Lapu-Lapu	teamfight	Justice Blades|Jungle Warrior|Bravest Fighter|Raging Slash|Storm Sword|Land Shaker
+Q	Layla	laning	Void Projectile|Malefic Bomb|@BASIC
+Q	Layla	teamfight	Malefic Bomb|Void Projectile|Destruction Rush|@BASIC
+Q	Leomord	laning	Momentum|Decimation Assault|@BASIC
+Q	Leomord	teamfight	Phantom Steed|Momentum|Decimation Assault|Momentum|Decimation Assault|@BASIC
+Q	Lesley	laning	@BASIC|Master of Camouflage|@BASIC|Ultimate Snipe
+Q	Lesley	teamfight	Master of Camouflage|@BASIC|Tactical Grenade|@BASIC|Ultimate Snipe
+Q	Ling	laning	Finch Poise|Defiant Sword|@BASIC|Defiant Sword
+Q	Ling	teamfight	Finch Poise|Defiant Sword|@BASIC|Tempest of Blades|Defiant Sword
+Q	Lolita	laning	Power Charge|@BASIC|Guardian's Reflection
+Q	Lolita	teamfight	Guardian's Reflection|Power Charge|@BASIC|Noumenon Blast
+Q	Lukas	laning	Flash Step|@BASIC|@BASIC|Flash Combo|@BASIC
+Q	Lukas	teamfight	Unleash the Beast|Flash Step|@BASIC|@BASIC|Flash Combo|Shockwave Blast
+Q	Lunox	laning	Cosmic Fission|Chaos Assault|Starlight Pulse
+Q	Lunox	teamfight	Cosmic Fission|Chaos Assault|Power of Chaos: Darkening|Chaos Assault|Starlight Pulse|Power of Order: Brilliance
+Q	Luo Yi	laning	Dispersion|Rotation
+Q	Luo Yi	teamfight	Dispersion|Dispersion|Rotation
+Q	Lylia	laning	Shadow Energy|Magic Shockwave|Shadow Energy
+Q	Lylia	teamfight	Shadow Energy|Magic Shockwave|Shadow Energy|Black Shoes
+Q	Marcel	laning	Tracking Shot|Framed Moment|@BASIC|@BASIC
+Q	Marcel	teamfight	Tracking Shot|Framed Moment|Tracking Shot|Golden Hour|@BASIC|@BASIC
+Q	Martis	laning	Asura Aura|Mortal Coil|Mortal Coil|@BASIC
+Q	Martis	teamfight	Asura Aura|Mortal Coil|Mortal Coil|@BASIC|Decimation|@BASIC|Decimation
+Q	Masha	laning	Claw Strike|@BASIC|Feral Swipe|@BASIC
+Q	Masha	teamfight	Savage Maul|@BASIC|Claw Strike|@BASIC|@BASIC|@BASIC|@BASIC
+Q	Mathilda	laning	Soul Bloom|Guiding Wind|@BASIC|Circling Eagle
+Q	Mathilda	teamfight	Soul Bloom|Guiding Wind|Circling Eagle
+Q	Melissa	laning	Eyes on You!|@BASIC|Falling!|@BASIC
+Q	Melissa	teamfight	Eyes on You!|@BASIC|Falling!|Go Away!
+Q	Minotaur	laning	Despair Stomp|@BASIC|Motivation Roar
+Q	Minotaur	teamfight	Despair Stomp|Minoan Fury|Despair Stomp|@BASIC|Motivation Roar
+Q	Minsitthar	laning	Spear of Glory|Shield Assault|@BASIC
+Q	Minsitthar	teamfight	Spear of Glory|King's Calling|Shield Assault|@BASIC
+Q	Miya	laning	Arrow of Eclipse|Moon Arrow|@BASIC
+Q	Miya	teamfight	Hidden Moonlight|Arrow of Eclipse|Moon Arrow|@BASIC
+Q	Moskov	laning	Abyss Walker|Spear of Misery|@BASIC
+Q	Moskov	teamfight	Spear of Destruction|Spear of Misery|Abyss Walker|@BASIC
+Q	Nana	laning	Molina Smooch|Magic Boomerang
+Q	Nana	teamfight	Molina Smooch|Molina Blitz|Magic Boomerang
+Q	Natalia	laning	@BASIC|Smoke Bomb|Claw Dash|Claw Dash
+Q	Natalia	teamfight	@BASIC|Smoke Bomb|Claw Dash|The Hunt|@BASIC|Claw Dash|The Hunt
+Q	Natan	laning	Superposition|@BASIC|Interference!|@BASIC
+Q	Natan	teamfight	Entropy?|Interference!|Superposition|@BASIC|Entropy?
+Q	Nolan	laning	Gauge|@BASIC|Expansion|Gauge|Expansion
+Q	Nolan	teamfight	Gauge|@BASIC|Expansion|Gauge|Fracture
+Q	Novaria	laning	Astral Recall|Astral Meteor|Astral Recall
+Q	Novaria	teamfight	Astral Echo|Astral Recall|Astral Recall|Astral Meteor
+Q	Obsidia	laning	Abyssal Bone Needle|Phantom Shadowmeld|Hunt of Bone|@BASIC
+Q	Obsidia	teamfight	@BASIC|Abyssal Bone Needle|Phantom Shadowmeld|Hunt of Bone|@BASIC
+Q	Odette	laning	Avian Authority|Blue Nova|Swan Song
+Q	Odette	teamfight	Blue Nova|Swan Song|Swan Song|Avian Authority
+Q	Paquito	laning	Heavy Left Punch|Jab|Heavy Left Punch|Jab
+Q	Paquito	teamfight	Jab|Heavy Left Punch|Knockout Strike|Jab
+Q	Pharsa	laning	Curse of Crow|Energy Impact|Feathered Air Strike
+Q	Pharsa	teamfight	Wings by Wings|Curse of Crow|Feathered Air Strike|Energy Impact|Feathered Air Strike
+Q	Phoveus	laning	Demonic Impact|Demonic Impact|@BASIC|Dark Wave
+Q	Phoveus	teamfight	@BASIC|Infernal Pursuit|Demonic Impact|Dark Wave
+Q	Popol and Kupa	laning	Bite 'em, Kupa!|Popol's Surprise|@BASIC|Kupa, Help!
+Q	Popol and Kupa	teamfight	Kupa, Help!|We Are Angry!|Bite 'em, Kupa!|Popol's Surprise|@BASIC
+Q	Rafaela	laning	Light of Retribution|Holy Healing
+Q	Rafaela	teamfight	Light of Retribution|Holy Baptism|Holy Healing
+Q	Roger	laning	Hunter's Steps|Open Fire|Wolf Transformation|Bloodthirsty Howl|@BASIC|Lycan Pounce
+Q	Roger	teamfight	Open Fire|Hunter's Steps|Wolf Transformation|Bloodthirsty Howl|Lycan Pounce
+Q	Ruby	laning	Be Good!|I'm Offended!|Don't Run, Wolf King!|@BASIC
+Q	Ruby	teamfight	Be Good!|Don't Run, Wolf King!|I'm Offended!
+Q	Saber	laning	Orbiting Swords|Charge|Triple Sweep
+Q	Saber	teamfight	Orbiting Swords|Charge|Triple Sweep
+Q	Selena	laning	Abyssal Arrow|Abyssal Trap
+Q	Selena	teamfight	Abyssal Trap|Abyssal Arrow|Primal Darkness|Garotte|Soul Eater|Garotte
+Q	Silvanna	laning	Spiral Strangling|Cometic Lance|Cometic Lance|Imperial Justice|@BASIC
+Q	Silvanna	teamfight	Imperial Justice|Cometic Lance|Spiral Strangling|@BASIC
+Q	Sora	laning	Windstride|Sundering Strike|Shifting Skies|@BASIC|Windstride|Sundering Strike|@BASIC|Shifting Skies
+Q	Sora	teamfight	Windstride|Shifting Skies|Sundering Strike|Windstride|@BASIC|Shifting Skies
+Q	Sun	laning	Endless Variety|Swift Exchange|Instantaneous Move|@BASIC
+Q	Sun	teamfight	Clone Techniques|Swift Exchange|Instantaneous Move|@BASIC
+Q	Suyou	laning	Blade Surge|@BASIC|Soul Sever|Evil Queller
+Q	Suyou	teamfight	Evil Queller|Blade Surge|Soul Sever|Evil Queller|Blade Surge|Soul Sever
+Q	Terizla	laning	Revenge Strike|Execution Strike
+Q	Terizla	teamfight	Penalty Zone|Revenge Strike|Execution Strike
+Q	Thamuz	laning	Molten Scythes|Chasm Trample|@BASIC|Molten Scythes|@BASIC
+Q	Thamuz	teamfight	Molten Scythes|Chasm Trample|Cauterant Inferno|@BASIC|Molten Scythes|@BASIC
+Q	Tigreal	laning	Sacred Hammer|Sacred Hammer|Attack Wave
+Q	Tigreal	teamfight	Sacred Hammer|Implosion|Sacred Hammer|Attack Wave
+Q	Uranus	laning	Ionic Edge|Transcendent Ward|Ionic Edge
+Q	Uranus	teamfight	Transcendent Ward|Consecration|Ionic Edge
+Q	Vale	laning	Windblow|Wind Blade
+Q	Vale	teamfight	Windblow|Windstorm|Wind Blade
+Q	Valentina	laning	Shadow Strike|Arcane Shade|Arcane Shade|Shadow Strike
+Q	Valentina	teamfight	I Am You|Arcane Shade|Shadow Strike|Arcane Shade|Shadow Strike|I Am You
+Q	Valir	laning	Burst Fireball|Searing Torrent|Burst Fireball
+Q	Valir	teamfight	Vengeance Flame|Burst Fireball|Burst Fireball|Searing Torrent|Burst Fireball
+Q	Vexana	laning	Deathly Grasp|Cursed Blast
+Q	Vexana	teamfight	Eternal Guard|Cursed Blast|Deathly Grasp
+Q	Wanwan	laning	@BASIC|Swallow’s Path|@BASIC|Crossbow of Tang
+Q	Wanwan	teamfight	Swallow’s Path|@BASIC|Crossbow of Tang
+Q	X.Borg	laning	Fire Missiles|Fire Stake
+Q	X.Borg	teamfight	Fire Missiles|Last Insanity|Fire Stake
+Q	Xavier	laning	Infinite Extension|Mystic Field|Dawning Light|Infinite Extension
+Q	Xavier	teamfight	Dawning Light|Mystic Field|Infinite Extension|Infinite Extension
+Q	Yi Sun-shin	laning	@BASIC|Traceless|@BASIC|Blood Floods|@BASIC
+Q	Yi Sun-shin	teamfight	Mountain Shocker|Traceless|@BASIC|Traceless|@BASIC|Blood Floods|@BASIC
+Q	Yin	laning	Charged Punch|Instant Blast|@BASIC
+Q	Yin	teamfight	Charged Punch|Instant Blast|@BASIC|My Turn|Instant Blast|Frenzy Strike
+Q	Yu Zhong	laning	Soul Grip|Furious Dive|Dragon Tail|@BASIC
+Q	Yu Zhong	teamfight	Black Dragon Form|Black Dragon Form|Soul Grip|Furious Dive|Dragon Tail|@BASIC
+Q	Yve	laning	Void Crystal|Void Blast
+Q	Yve	teamfight	Real World Manipulation|Void Crystal|Void Blast
+Q	Zetian	laning	Phoenix Descent|Phoenix Strike|Phoenix Descent
+Q	Zetian	teamfight	Fury of the Phoenix|Phoenix Descent|Phoenix Strike|Phoenix Descent
+Q	Zhask	laning	Nightmaric Spawn|Mind Eater|Hive Clones
+Q	Zhask	teamfight	Nightmaric Spawn|Dominator's Descent|Mind Eater|Hive Clones|@BASIC|Nightmaric Spawn
+Q	Zhuxin	laning	Fluttering Grace|Lantern Flare|Lantern Flare
+Q	Zhuxin	teamfight	Fluttering Grace|Crimson Beacon|Lantern Flare|Lantern Flare
+Q	Zilong	laning	Spear Strike|Spear Flip|@BASIC
+Q	Zilong	teamfight	Supreme Warrior|Spear Strike|Spear Flip|@BASIC
