@@ -11,6 +11,7 @@ on:
       - 'updates/v0_6/**'
       - 'updates/v0_6_1/**'
       - 'updates/v0_7/**'
+      - 'updates/v0_7_1/**'
 
 permissions:
   contents: read
@@ -190,7 +191,7 @@ jobs:
       - name: Aplicar V0.7 - visão estruturada e painel
         shell: bash
         env:
-          MLBB_DEFAULT_API_URL: ${{ vars.MLBB_DEFAULT_API_URL }}
+          MLBB_DEFAULT_API_URL: https://mlbb-assistant-vision.onrender.com
         run: |
           cp updates/v0_7/*.kt android-app/app/src/main/java/com/mlbb/assistant/
           cp updates/v0_7/references_v7.txt android-app/app/src/main/assets/
@@ -208,6 +209,35 @@ jobs:
               assert len(names)==len(set(names))
               assert len(base64.b64decode(rows[b],validate=True))==20*len(names)
               print("Referências:",len(names))
+          PY
+
+      - name: Aplicar V0.7.1 e testar produção
+        run: |
+          python3 deploy/harden_backend.py
+          python3 updates/v0_7_1/backend.py
+          python3 updates/v0_7_1/android.py
+          cp updates/v0_7_1/test_production.py server/
+          python3 -m pip install -r server/requirements.txt pytest pytest-asyncio
+          cd server
+          python3 -m pytest -q
+      - name: Testar HTTPS do servidor publicado
+        continue-on-error: true
+        run: |
+          python3 - <<'PY'
+          import urllib.request,urllib.error,json
+          base="https://mlbb-assistant-vision.onrender.com"
+          with urllib.request.urlopen(base+"/health",timeout=90) as res:
+              body=json.load(res)
+              assert res.status==200 and body["status"]=="ok"
+              print("Health:",body)
+          for route,data in [("/recommend",b'{"hero":"Hanzo"}'),("/draft",b'{}'),("/session",b'')]:
+              req=urllib.request.Request(base+route,data=data,headers={"Content-Type":"application/json"},method="POST")
+              try:
+                  urllib.request.urlopen(req,timeout=30)
+              except urllib.error.HTTPError as e:
+                  print(route,e.code)
+                  assert e.code in ((503,) if route=="/session" else (401,403))
+              else:raise AssertionError("Unexpected success "+route)
           PY
 
       - name: Configurar Java 17
@@ -251,7 +281,7 @@ jobs:
       - name: Disponibilizar APK para download
         uses: actions/upload-artifact@v4
         with:
-          name: MLBB-ASSISTANT-V0.7-APK
+          name: MLBB-ASSISTANT-V0.7.1-APK
           path: android-app/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
 
@@ -259,11 +289,11 @@ jobs:
         shell: bash
         run: |
           cp updates/v0_7/README.md README_V0_7.md
-          zip -q -r MLBB_ASSISTANT_V0_7_SOURCE.zip android-app server README_V0_7.md render.yaml -x '*/build/*' '*/.gradle/*' '*/__pycache__/*'
+          zip -q -r MLBB_ASSISTANT_V0_7_1_SOURCE.zip android-app server README_V0_7.md render.yaml -x '*/build/*' '*/.gradle/*' '*/__pycache__/*'
 
       - name: Disponibilizar codigo-fonte atualizado
         uses: actions/upload-artifact@v4
         with:
-          name: MLBB-ASSISTANT-V0.7-FONTES
-          path: MLBB_ASSISTANT_V0_7_SOURCE.zip
+          name: MLBB-ASSISTANT-V0.7.1-FONTES
+          path: MLBB_ASSISTANT_V0_7_1_SOURCE.zip
           if-no-files-found: error

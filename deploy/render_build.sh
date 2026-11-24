@@ -168,4 +168,5 @@ for a,b in [(0,1),(2,3)]:
     print("Referências:",len(names))
 PY
 python3 deploy/harden_backend.py
+python3 updates/v0_7_1/backend.py
 python3 -m pip install -r server/requirements.txt
