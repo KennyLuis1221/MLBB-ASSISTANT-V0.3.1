@@ -33,19 +33,52 @@
      return cloud_sessions.issue(request.client.host if request.client else "unknown")
  
  @app.post("/strategy", dependencies=[Depends(require_authorization)], response_model=strategy_live.Supplement)
+--- a/server/gemini_free.py
++++ b/server/gemini_free.py
+@@ -1,7 +1,8 @@
+ """Gemini free-project adapter. No paid fallback in production. No request/secret logging."""
+-import base64,json,os,time,threading
++import base64,json,logging,os,time,threading
+ import httpx
+ MODEL="gemini-3.5-flash-lite"
++logger = logging.getLogger(__name__)
+ _lock=threading.Lock()
+ _day=-1
+ _calls=0
+@@ -46,13 +47,18 @@
+     async with httpx.AsyncClient(timeout=httpx.Timeout(30,connect=5),follow_redirects=False) as client:
+         r=await client.post("https://generativelanguage.googleapis.com/v1beta/models/"+MODEL+":generateContent",
+               headers={"x-goog-api-key":os.environ["GEMINI_API_KEY"]},json=payload)
++        if r.status_code != 200:
++            logger.warning("Gemini returned HTTP %d", r.status_code)
+         if r.status_code==429:
+             with _lock:_block_until=time.time()+3600
+             raise RuntimeError("Cota do provedor esgotada")
+         if r.status_code!=200:raise RuntimeError("Provedor visual indisponível: HTTP "+str(r.status_code))
+         body=r.json()
+     candidates=body.get("candidates",[])
+-    if not candidates or candidates[0].get("finishReason") not in (None,"STOP"):
++    finish = candidates[0].get("finishReason") if candidates else None
++    if not candidates or finish not in (None, "STOP"):
++        reason = finish if finish in ("MAX_TOKENS", "SAFETY", "RECITATION", "OTHER") else "no_valid_candidate"
++        logger.warning("Gemini response incomplete: %s", reason)
+         raise ValueError("Observação incompleta")
+     text="".join(p.get("text","") for p in candidates[0].get("content",{}).get("parts",[]) if not p.get("thought"))
+     return model_type.model_validate(json.loads(text))
 --- a/server/strategy_live.py
 +++ b/server/strategy_live.py
-@@ -1,6 +1,8 @@
+@@ -1,6 +1,9 @@
 -"""Provide an optional Gemini interpretation anchored to the game's recognized state."""
 +"""Gemini selects among candidate items and evidence IDs. The server builds all factual text."""
  from __future__ import annotations
  
 +import asyncio
 +import json
++import logging
  from pathlib import Path
  from typing import Annotated, Literal
  
-@@ -9,7 +11,7 @@
+@@ -9,7 +12,7 @@
  
  import gemini_free
  
@@ -54,12 +87,21 @@
  catalog = Path(__file__).with_name("live_catalog.tsv")
  HEROES: set[str] = set()
  ITEMS: set[str] = {"Athena's Shield"}
-@@ -18,75 +20,165 @@
+@@ -18,75 +21,175 @@
          category, name, *_ = line.split("\t", 2)
          (HEROES if category == "H" else ITEMS).add(name)
  
 +CONTRACT = 1
 +PROVIDER_DEADLINE_SECONDS = 12
++logger = logging.getLogger(__name__)
++PROVIDER_SCHEMA = {
++    "type": "object",
++    "properties": {
++        "item": {"type": ["string", "null"]},
++        "evidence_ids": {"type": "array", "items": {"type": "string"}, "maxItems": 3},
++    },
++    "required": ["item", "evidence_ids"],
++}
 +FactKind = Literal["enemy_present", "item_observed", "gold_observed", "level_observed"]
 +
 +
@@ -234,7 +276,7 @@
 -        return suggestion
 +        suggestion = await asyncio.wait_for(gemini_free.generate(
 +            [{"text": PROMPT}, {"text": json.dumps(request, ensure_ascii=False)}],
-+            ProviderChoice.model_json_schema(), ProviderChoice, max_tokens=350,
++            PROVIDER_SCHEMA, ProviderChoice, max_tokens=700,
 +        ), timeout=PROVIDER_DEADLINE_SECONDS)
 +        if suggestion.item is not None and suggestion.item not in candidates:
 +            raise ValueError("Equipamento fora dos candidatos elegíveis")
@@ -251,10 +293,11 @@
 +                          evidence_heroes=list(dict.fromkeys(fact.hero for fact in facts)),
 +                          facts=facts, conditions=conditions, **base)
 +    except (ValueError, RuntimeError, TimeoutError) as error:
++        logger.warning("Strategy response unavailable (%s)", type(error).__name__)
 +        raise HTTPException(status_code=503, detail="Estratégia online temporariamente indisponível") from error
      except Exception as error:
 -        raise HTTPException(status_code=503, detail="Estratégia online temporariamente indisponível") from error
-+        # Network and provider errors remain local to the optional endpoint.
++        logger.warning("Strategy provider connection failed (%s)", type(error).__name__)
 +        raise HTTPException(status_code=503, detail="Falha de comunicação com o provedor") from error
 --- a/server/test_strategy_live.py
 +++ b/server/test_strategy_live.py
