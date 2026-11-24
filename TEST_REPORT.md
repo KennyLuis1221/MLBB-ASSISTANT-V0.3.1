@@ -12,6 +12,7 @@ Referência Android experimental V0.16 na branch `development-v023`, commit `a55
 | APKs de teste | Base e IA 0.17.0, código 18, Android mínimo 29, target 35. O ZIP interno e a assinatura v2 de debug foram verificados. Apenas IA declara permissão de internet |
 | Servidor configurado no app anterior | `GET /health` respondeu com versão 0.7.2, visão marcada online, 0 templates e sem capacidade `strategy` |
 | Capturas reais autorizadas | 0 pares fornecidos. Precisão, recall, falsos positivos e negativos e acurácia do OCR sem medição |
+| Emulador Android 15 | O host não ofereceu KVM. A tentativa por emulação de CPU iniciou o processo do AVD, mas o Android não respondeu à sessão ADB. Instalação e instrumentação ficaram pendentes |
 | Aparelho físico com MLBB | Sem sessão de teste disponível. Latência real, CPU, PSS e estabilidade de partida pendentes |
 | Gemini real | Respostas simuladas foram usadas nos testes de contrato. Sem invocação autorizada com estado real de partida |
 
