@@ -236,6 +236,7 @@ jobs:
           cp updates/v0_8_1/ItemReference.kt updates/v0_8_1/ObservationParser.kt android-app/app/src/main/java/com/mlbb/assistant/
           cp updates/v0_8_1/Review081Test.kt android-app/app/src/test/java/com/mlbb/assistant/
           python3 updates/v0_8_1/apply.py
+          python3 updates/v0_8_1/recover_refs.py
       - name: Testar HTTPS do servidor publicado
         continue-on-error: true
         run: |
