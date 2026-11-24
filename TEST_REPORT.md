@@ -1,19 +1,17 @@
 # Relatório de testes
 
-Referência Android experimental V0.16 na branch `development-v023`, commit `a554185ea74461edc3c97d52f07f31e22f0f08f7`. A publicação anterior gerava um único APK que alternava Base e IA pela interface. [Execução V0.16](https://github.com/KennyLuis1221/MLBB-ASSISTANT-V0.3.1/actions/runs/45399109046)
-
-| Ensaio | Observação |
+| Ensaio | Resultado |
 | --- | --- |
-| Pipeline anterior | Auditoria do código confirmou intervalo de 60 s no caminho IA e exigência de par em até 20 s na análise local |
-| Backend anterior | 48 passaram e 1 foi pulado na preparação |
-| Backend atualizado | 54 passaram e 1 foi pulado por ausência das imagens previstas na suíte anterior. Casos novos cobrem autenticação, dados desconhecidos, falha do provedor e resposta fora do catálogo observado |
-| Materialização independente | A preparação do ZIP e a aplicação sequencial das revisões reproduziram o código Android e servidor |
-| Android JVM | 53 passaram na Base e 53 na IA, sem falhas ou pulos. O teste de regressão verifica que 1.000 ms é aceito e 1.001 ms excede o limite |
-| APKs de teste | Base e IA 0.17.0, código 18, Android mínimo 29, target 35. O ZIP interno e a assinatura v2 de debug foram verificados. Apenas IA declara permissão de internet |
-| Servidor configurado no app anterior | `GET /health` respondeu com versão 0.7.2, visão marcada online, 0 templates e sem capacidade `strategy` |
-| Capturas reais autorizadas | 0 pares fornecidos. Precisão, recall, falsos positivos e negativos e acurácia do OCR sem medição |
-| Emulador Android 15 | O host não ofereceu KVM. A tentativa por emulação de CPU iniciou o processo do AVD, mas o Android não respondeu à sessão ADB. Instalação e instrumentação ficaram pendentes |
-| Aparelho físico com MLBB | Sem sessão de teste disponível. Latência real, CPU, PSS e estabilidade de partida pendentes |
-| Gemini real | Respostas simuladas foram usadas nos testes de contrato. Sem invocação autorizada com estado real de partida |
+| Compilação de referência V0.17 | Reproduzida antes das alterações. 53 testes Kotlin em cada variante |
+| Android Base 0.18 | 63 testes JVM, zero falhas e zero pulos |
+| Android IA 0.18 | 63 testes JVM, zero falhas e zero pulos |
+| Lint Android | Base e IA passaram. Avisos de APIs obsoletas e de lint permanecem registrados |
+| Backend na árvore completa | 56 aprovados e um pulado. A suíte anterior dependia das imagens da conversa ausentes no pacote |
+| Backend com o script de produção na árvore da `main` | 47 aprovados e um pulado pelo mesmo motivo. Essa árvore mantém apenas as revisões necessárias no servidor |
+| Ferramentas | Seis testes aprovados para avaliador, evidências duplicadas, atribuição e catálogo |
+| Build de validação | APKs Base e IA. Código 19, minSdk 29, target 35, assinatura debug, verificação de SHA-256 e INTERNET exclusivamente na edição IA |
+| CI inicial da recuperação | Reprovou a compilação de teste por smart cast de propriedade de outro módulo. Corrigido em `620617e` e confirmado na execução seguinte |
+| Android instrumentado e campo | Pendente. Sem ADB em aparelho físico e sem conjunto autorizado de partida |
+| Backend externo | Verificação publicada no relatório de integração |
 
-Os critérios de aceitação de campo foram definidos em [VALIDACAO_ANDROID.md](VALIDACAO_ANDROID.md).
+Os testes unitários exercitam regras com entradas controladas. A precisão visual e o desempenho dependem do ensaio em campo. [Execução CI que corrigiu a compilação](https://github.com/KennyLuis1221/MLBB-ASSISTANT-V0.3.1/actions/runs/45418636145) · [Integração](RELATORIO_INTEGRACAO.md) · [Precisão](RELATORIO_PRECISAO.md) · [Desempenho](RELATORIO_DESEMPENHO.md) · [Android](RELATORIO_ANDROID.md)

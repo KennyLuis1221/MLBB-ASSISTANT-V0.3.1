@@ -14,3 +14,5 @@
 | Operação | Android físico com partidas autorizadas, medidas de latência, memória, CPU e estabilidade |
 
 O ensaio começa com pelo menos 60 sequências independentes de dois aparelhos, com Android 10 a 13 e Android 14 ou superior representados, proporções distintas, mínimo de três quadros úteis por sequência e 30 minutos por edição. O conjunto precisa abranger os modos e telas aplicáveis e deve informar as classes que ficaram sem amostra. Calibração e avaliação usam partidas separadas. O avaliador informa amostras por classe, precisão, recall, F1, cobertura, abstenção e erros. A amostra mínima permite triagem e não certifica classes com pouca ou nenhuma observação.
+
+No teste de captura, registre também o máximo entre tentativas, quadros válidos, entregas sem confirmação e descartes por atraso. Compare a latência e a cadência separadamente. Para avaliar identificação própria automática, exclua da mesma categoria os casos em que houve seleção manual. Informe as duas coberturas e respectivas abstenções.

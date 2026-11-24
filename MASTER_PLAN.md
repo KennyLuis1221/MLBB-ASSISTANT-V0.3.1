@@ -15,3 +15,7 @@ A base desta recuperação é a branch `codex/mlbb-auditoria` no commit `1a08dde
 | 8. Validação | APKs assinados e corpus independente | Compilação rastreável, regressões, integração e testes físicos conforme os critérios |
 
 [Requisitos de aceitação](ACCEPTANCE_CRITERIA.md) · [Matriz de defeitos](ISSUE_MATRIX.md) · [Situação](PROJECT_STATUS.md) · [Evidências](EVIDENCE_INDEX.md)
+
+## Ponto de retomada
+
+A infraestrutura de avaliação foi implementada em `41d6342`, seguida da recuperação dos módulos em `85b9a7d` e das correções de CI e invalidação em `620617e`. A integração Gemini e o deploy de produção têm rastreabilidade própria. O ensaio de replay com corpus, os detectores complementares, a calibração e a validação física ainda condicionam a conclusão integral. [Integração](RELATORIO_INTEGRACAO.md) · [Continuidade](NEXT_ACTIONS.md)

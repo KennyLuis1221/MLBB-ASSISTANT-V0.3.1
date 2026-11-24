@@ -24,3 +24,15 @@ O motor `Strategy13` usa a observação disponível e o catálogo versionado. Ou
 | Redimensionamento dependia somente do callback novo e o bitmap intermediário era copiado com padding e recomprimido para JPEG | Orientações mais antigas sem atualização e perda potencial de detalhes | Observação da rotação nas APIs antigas, conversão considerando o stride de cada linha e bitmap direto para análise local |
 
 As causas acima foram identificadas no código. A contribuição de cada uma para a falha relatada no aparelho permanece sem reprodução.
+
+## Fluxo recuperado na 0.18
+
+`ProjectionService` agenda a análise local em batidas de 1.000 ms e adquire o quadro mais recente. O serviço verifica a integridade e o foco do jogo. O replay entrega bitmaps e timestamps ao mesmo `OfflineTextAnalyzer`. Nenhum quadro do replay é enviado à edição IA.
+
+`ScreenEvidence` classifica telas por sinais de OCR. `DetailedMatcher` combina cabeçalhos, alinhamento das linhas, âncoras e perfis de regiões. Retratos e equipamentos são lidos separadamente. `SlotObservation` descreve cada leitura com estado, origem, confiança heurística e instante. A calibração de slot vazio exige uma amostra positiva.
+
+`MatchTracker` associa linhas dentro da sessão pelo lado, posição e sinais confirmados. As observações passam por confirmação temporal e expiração por campo. A revisão do estado, os IDs das linhas e os tempos acompanham o placar consolidado. O relógio avança a partir de uma leitura recente confirmada e sinaliza estimativa. O HUD oferece relógio quando observável. Seleção, carregamento, morte e resultado têm classificação contextual. Loja calibrada oferece saldo. A composição e o inventário detalhado dependem da abertura do placar.
+
+`Strategy13` recebe o estado consolidado e chama a simulação de receitas, que verifica espaço, consumo de componentes e orçamento. O motor local alimenta ambas as edições. Na edição IA, `CloudEvidence` limita os candidatos e evidencia apenas o estado recente. O backend permite que o provedor escolha um item e cite IDs de evidências. O servidor e o cliente montam a mensagem a partir dos fatos validados.
+
+O painel mantém a vista compacta e a expandida. O diagnóstico registra recepção, descarte, integridade, tentativas de análise, validade dos campos e entrega ao painel separadamente.
