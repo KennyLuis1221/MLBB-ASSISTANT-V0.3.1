@@ -35,7 +35,7 @@ for slug,v in d["counters"].items():
     if slug not in slugs:continue
     if "strong" in v:v={"all":v}
     for rank,x in v.items():
-        if rank not in ("all","mythic") or not isinstance(x,dict):continue
+        if rank not in ("all","epic","legend","mythic","honor","glory") or not isinstance(x,dict):continue
         for e in x.get("strong",[])+x.get("weak",[]):
             target=e.get("slug");gap=e.get("advantage")
             if target in slugs and target!=slug and finite(gap):
@@ -43,7 +43,7 @@ for slug,v in d["counters"].items():
 for slug,v in d.get("teammates",{}).items():
     if slug not in slugs or not isinstance(v,dict):continue
     for rank,arr in v.items():
-        if rank not in ("all","mythic") or not isinstance(arr,list):continue
+        if rank not in ("all","epic","legend","mythic","honor","glory") or not isinstance(arr,list):continue
         for e in arr:
             target=e.get("slug");gap=e.get("advantage")
             if target in slugs and target!=slug and finite(gap):
@@ -52,7 +52,7 @@ for slug,lanes in d["builds"].items():
     if slug not in slugs:continue
     for lane,byrank in lanes.items():
         for rank,arr in byrank.items():
-            if rank not in ("all","mythic") or not isinstance(arr,list):continue
+            if rank not in ("all","epic","legend","mythic","honor","glory") or not isinstance(arr,list):continue
             for b in arr[:3]:
                 names=list(dict.fromkeys(n for i in b.get("items",[]) if (n:=norm(i))))
                 if names:
@@ -60,12 +60,12 @@ for slug,lanes in d["builds"].items():
 for slug,byrank in d.get("guides",{}).items():
     if slug not in slugs:continue
     for rank,b in byrank.items():
-        if rank not in ("all","mythic") or not isinstance(b,dict):continue
+        if rank not in ("all","epic","legend","mythic","honor","glory") or not isinstance(b,dict):continue
         names=list(dict.fromkeys(n for i in b.get("items",[]) if (n:=norm(i))))
         if names:
             add("B",slugs[slug],"",rank,"guide",0,"|".join(names));counts["guide_builds"]+=1
 assert len(slugs)==133 and len(items)>=100
 assert counts["counter_rows"]>0 and counts["played_builds"]>0,counts
-p.write_text("\n".join("\t".join(r) for r in rows)+"\n",encoding="utf-8")
+p.write_text("\n".join("\t".join(r) for r in rows)+"\n"+Path("updates/v0_13_1/effects.tsv").read_text(encoding="utf-8"),encoding="utf-8")
 print("SOURCE DATA",len(slugs),len(items),dict(counts),"skills",sum(r[0]=="S" for r in rows))
 print("HERO BUILD COVERAGE",len({r[1] for r in rows if r[0]=="B"}))
