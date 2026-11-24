@@ -244,6 +244,9 @@ jobs:
           cp updates/v0_13/Strategy13Test.kt android-app/app/src/test/java/com/mlbb/assistant/
           python3 updates/v0_13/import_data.py
           python3 updates/v0_13/apply.py
+          cp updates/v0_13/BoardCalibration.kt updates/v0_13/CalibrationView.kt android-app/app/src/main/java/com/mlbb/assistant/
+          cp updates/v0_13/BoardCalibrationTest.kt android-app/app/src/test/java/com/mlbb/assistant/
+          python3 updates/v0_13/apply_calibration.py
           cp updates/v0_13/DATA_ATTRIBUTION.md android-app/app/src/main/assets/
       - name: Testar HTTPS do servidor publicado
         continue-on-error: true

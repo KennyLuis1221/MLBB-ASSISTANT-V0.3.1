@@ -4,3 +4,5 @@
 0.11: cálculo para todos os pares, distingue gaps observados de estimativas por características; não confunde ausência de medição com zero. Draft por lane real da fonte, exclui bans e escolhas manuais. Sem matriz empírica completa.
 0.12: endurece repetição da mesma região do placar, não assume identidade por hint sozinho, exclui nomes laterais no draft; ainda 121 retratos/76 itens, não calibrados em jogo, não lê nível/saldo de modo confiável; sem novas capturas independentes. 
 0.13: consulta do banco, análise de confronto e sinergia, simulador e painel com plano de compra, modos I.A./App Base preservados. O modo local não usa API; backend Render não alterado. Aparência no Xiaomi, FPS e precisão ao vivo ainda não validados. Testes Kotlin e backend não comprovam uso em partidas reais.
+
+Calibração opcional: o usuário marca dez coordenadas em print local, salva apenas geometria relativa e pode validar visualmente as caixas. Perfis são usados apenas em proporção semelhante. Nenhuma captura de jogo real foi fornecida para certificação; teste geométrico não mede acurácia visual.
