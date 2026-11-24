@@ -10,6 +10,7 @@ on:
       - 'updates/v0_5/**'
       - 'updates/v0_6/**'
       - 'updates/v0_6_1/**'
+      - 'updates/v0_7/**'
 
 permissions:
   contents: read
@@ -186,6 +187,29 @@ jobs:
           print("Validações de presença V0.6.1: OK")
           PY
 
+      - name: Aplicar V0.7 - visão estruturada e painel
+        shell: bash
+        env:
+          MLBB_DEFAULT_API_URL: ${{ vars.MLBB_DEFAULT_API_URL }}
+        run: |
+          cp updates/v0_7/*.kt android-app/app/src/main/java/com/mlbb/assistant/
+          cp updates/v0_7/references_v7.txt android-app/app/src/main/assets/
+          cp updates/v0_7/cloud_sessions.py server/
+          python3 updates/v0_7/apply_v7.py
+          python3 updates/v0_7/patch_cloud.py
+          python3 -m py_compile server/*.py
+          python3 - <<'PY'
+          from pathlib import Path
+          import base64
+          rows=Path("android-app/app/src/main/assets/references_v7.txt").read_text().splitlines()
+          assert len(rows)==4
+          for a,b in [(0,1),(2,3)]:
+              names=rows[a].split("|")
+              assert len(names)==len(set(names))
+              assert len(base64.b64decode(rows[b],validate=True))==20*len(names)
+              print("Referências:",len(names))
+          PY
+
       - name: Configurar Java 17
         uses: actions/setup-java@v4
         with:
@@ -227,19 +251,19 @@ jobs:
       - name: Disponibilizar APK para download
         uses: actions/upload-artifact@v4
         with:
-          name: MLBB-ASSISTANT-V0.6.1-APK
+          name: MLBB-ASSISTANT-V0.7-APK
           path: android-app/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
 
       - name: Empacotar fontes atualizadas
         shell: bash
         run: |
-          cp updates/v0_6_1/README.md README_V0_6_1.md
-          zip -q -r MLBB_ASSISTANT_V0_6_1_SOURCE.zip android-app server README_V0_6_1.md render.yaml
+          cp updates/v0_7/README.md README_V0_7.md
+          zip -q -r MLBB_ASSISTANT_V0_7_SOURCE.zip android-app server README_V0_7.md render.yaml -x '*/build/*' '*/.gradle/*' '*/__pycache__/*'
 
       - name: Disponibilizar codigo-fonte atualizado
         uses: actions/upload-artifact@v4
         with:
-          name: MLBB-ASSISTANT-V0.6.1-FONTES
-          path: MLBB_ASSISTANT_V0_6_1_SOURCE.zip
+          name: MLBB-ASSISTANT-V0.7-FONTES
+          path: MLBB_ASSISTANT_V0_7_SOURCE.zip
           if-no-files-found: error
