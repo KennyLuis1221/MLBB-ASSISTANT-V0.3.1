@@ -101,3 +101,18 @@ rep(p,'result.addView(label(advice.profile,12,muted))','''result.addView(label(a
                 result.addView(label(loadout.emblem+" • "+loadout.talents.joinToString(", ")+" • "+loadout.spell+" • "+loadout.support+" registros (não partidas)",12,white))
             }''')
 g=Path("android-app/app/build.gradle.kts");s=g.read_text().replace("versionCode = 15","versionCode = 16").replace('versionName = "0.13.1"','versionName = "0.13.2"');g.write_text(s)
+
+# Supplement the only hero lacking a complete six-item guide; never call it measured.
+asset=Path("android-app/app/src/main/assets/strategy13.tsv")
+rows=asset.read_text(encoding="utf-8").splitlines()
+hero_names={r.split("\t")[1] for r in rows if r.startswith("H\t")}
+complete={a[1] for r in rows if (a:=r.split("\t"))[0]=="B" and a[4] in ("guide","curated") and len(a[6].split("|"))==6}
+if "Barats" not in complete:
+    rows.append("\t".join(["B","Barats","Jungle","all","curated","0","Tough Boots|War Axe|Thunder Belt|Brute Force Breastplate|Guardian Helmet|Immortality","","","",""]))
+    complete.add("Barats")
+assert hero_names==complete,hero_names-complete
+asset.write_text("\n".join(rows)+"\n",encoding="utf-8")
+print("FULL SIX-ITEM REFERENCE COVERAGE",len(complete),"/",len(hero_names))
+rep("Strategy13.kt",'builds.filter{it.type=="guide"}.take(4)','builds.filter{it.type in setOf("guide","curated")}.take(4)')
+rep("MainActivity.kt",'val guide=ref.firstOrNull{it.type=="guide"}','val guide=ref.firstOrNull{it.type in setOf("guide","curated")}')
+rep("MainActivity.kt",'if(b.type=="guide")"GUIA DE JOGADOR • NÃO É TAXA MEDIDA" else "ITENS-CHAVE OBSERVADOS"','if(b.type=="curated")"GUIA EDITORIAL • MLBBGuides" else if(b.type=="guide")"GUIA DE JOGADOR • NÃO É TAXA MEDIDA" else "ITENS-CHAVE OBSERVADOS"')

@@ -49,7 +49,10 @@ class Combat132Test {
   val d=db()
   val fit=Tactics132.team(d,listOf("Hanzo","Tigreal","Layla","Eudora","Alpha"))
   assertTrue(fit.score>0)
-  for(h in d.heroes.keys)assertTrue(Tactics132.loadouts(d,h,null,"all").isNotEmpty())
+  for(h in d.heroes.keys){
+   assertTrue(Tactics132.loadouts(d,h,null,"all").isNotEmpty())
+   assertTrue(h,d.builds[h].orEmpty().any{it.type in setOf("guide","curated")&&it.items.size==6})
+  }
   for(a in d.heroes.keys)for(b in d.heroes.keys)if(a!=b){
    val x=Tactics132.interaction(d,a,b,false);val y=Tactics132.interaction(d,b,a,false)
    assertEquals(x.score,-y.score,1e-8)
