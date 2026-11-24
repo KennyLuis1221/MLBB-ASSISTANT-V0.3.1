@@ -17,6 +17,7 @@ on:
       - 'updates/v0_8_1/**'
       - 'updates/v0_13/**'
       - 'updates/v0_13_1/**'
+      - 'updates/v0_13_2/**'
 
 permissions:
   contents: read
@@ -258,6 +259,12 @@ jobs:
           python3 updates/v0_13_1/complete_refs.py
           python3 updates/v0_13_1/apply_refs.py
           cp updates/v0_13_1/README.md android-app/app/src/main/assets/AUDIT_131.md
+      - name: Integrar combate offline V0.13.2
+        run: |
+          cp updates/v0_13_2/Combat132.kt updates/v0_13_2/Tactics132.kt android-app/app/src/main/java/com/mlbb/assistant/
+          cp updates/v0_13_2/Combat132Test.kt android-app/app/src/test/java/com/mlbb/assistant/
+          python3 updates/v0_13_2/apply.py
+          cp updates/v0_13_2/README.md android-app/app/src/main/assets/AUDIT_132.md
       - name: Testar HTTPS do servidor publicado
         continue-on-error: true
         run: |
@@ -320,13 +327,13 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: MLBB-ASSISTANT-V0.13.1-TESTES
+          name: MLBB-ASSISTANT-V0.13.2-TESTES
           path: android-app/app/build/test-results/testDebugUnitTest/*.xml
           if-no-files-found: warn
       - name: Disponibilizar APK para download
         uses: actions/upload-artifact@v4
         with:
-          name: MLBB-ASSISTANT-V0.13.1-APK
+          name: MLBB-ASSISTANT-V0.13.2-APK
           path: android-app/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
 
@@ -337,11 +344,11 @@ jobs:
           cp updates/v0_8_1/README.md README_V0_8_1.md
           cp updates/v0_13/README.md README_V0_13.md
           cp updates/v0_13/DATA_ATTRIBUTION.md DATA_ATTRIBUTION.md
-          zip -q -r MLBB_ASSISTANT_V0_13_1_SOURCE.zip android-app server README_V0_8.md README_V0_8_1.md README_V0_13.md DATA_ATTRIBUTION.md updates/v0_13 updates/v0_13_1 render.yaml -x '*/build/*' '*/.gradle/*' '*/__pycache__/*'
+          zip -q -r MLBB_ASSISTANT_V0_13_2_SOURCE.zip android-app server README_V0_8.md README_V0_8_1.md README_V0_13.md DATA_ATTRIBUTION.md updates/v0_13 updates/v0_13_1 updates/v0_13_2 render.yaml -x '*/build/*' '*/.gradle/*' '*/__pycache__/*'
 
       - name: Disponibilizar codigo-fonte atualizado
         uses: actions/upload-artifact@v4
         with:
-          name: MLBB-ASSISTANT-V0.13.1-FONTES
-          path: MLBB_ASSISTANT_V0_13_1_SOURCE.zip
+          name: MLBB-ASSISTANT-V0.13.2-FONTES
+          path: MLBB_ASSISTANT_V0_13_2_SOURCE.zip
           if-no-files-found: error
