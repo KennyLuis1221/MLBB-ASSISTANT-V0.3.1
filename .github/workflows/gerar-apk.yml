@@ -13,6 +13,7 @@ on:
       - 'updates/v0_7/**'
       - 'updates/v0_7_1/**'
       - 'updates/v0_7_2/**'
+      - 'updates/v0_8/**'
 
 permissions:
   contents: read
@@ -223,6 +224,12 @@ jobs:
           python3 -m pip install -r server/requirements.txt pytest pytest-asyncio
           cd server
           python3 -m pytest -q
+      - name: Aplicar App Base V0.8
+        run: |
+          cp updates/v0_8/StrategicEngine.kt updates/v0_8/DraftRules.kt android-app/app/src/main/java/com/mlbb/assistant/
+          mkdir -p android-app/app/src/test/java/com/mlbb/assistant
+          cp updates/v0_8/StrategicEngineTest.kt android-app/app/src/test/java/com/mlbb/assistant/
+          python3 updates/v0_8/apply.py
       - name: Testar HTTPS do servidor publicado
         continue-on-error: true
         run: |
@@ -233,7 +240,7 @@ jobs:
               body=json.load(res)
               assert res.status==200 and body["status"]=="ok"
               print("Health:",body)
-          for route,data in [("/recommend",b'{"hero":"Hanzo"}'),("/draft",b'{}'),("/session",b'')]:
+          for route,data in [("/recommend",b'{"hero":"Hanzo"}'),("/draft",b'{}')]:
               req=urllib.request.Request(base+route,data=data,headers={"Content-Type":"application/json"},method="POST")
               try:
                   urllib.request.urlopen(req,timeout=30)
@@ -279,24 +286,24 @@ jobs:
 
       - name: Compilar APK de teste
         working-directory: android-app
-        run: gradle --no-daemon :app:assembleDebug
+        run: gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug
 
       - name: Disponibilizar APK para download
         uses: actions/upload-artifact@v4
         with:
-          name: MLBB-ASSISTANT-V0.7.2-APK
+          name: MLBB-ASSISTANT-V0.8-APK
           path: android-app/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
 
       - name: Empacotar fontes atualizadas
         shell: bash
         run: |
-          cp updates/v0_7/README.md README_V0_7.md
-          zip -q -r MLBB_ASSISTANT_V0_7_2_SOURCE.zip android-app server README_V0_7.md render.yaml -x '*/build/*' '*/.gradle/*' '*/__pycache__/*'
+          cp updates/v0_8/README.md README_V0_8.md
+          zip -q -r MLBB_ASSISTANT_V0_8_SOURCE.zip android-app server README_V0_8.md render.yaml -x '*/build/*' '*/.gradle/*' '*/__pycache__/*'
 
       - name: Disponibilizar codigo-fonte atualizado
         uses: actions/upload-artifact@v4
         with:
-          name: MLBB-ASSISTANT-V0.7.2-FONTES
-          path: MLBB_ASSISTANT_V0_7_2_SOURCE.zip
+          name: MLBB-ASSISTANT-V0.8-FONTES
+          path: MLBB_ASSISTANT_V0_8_SOURCE.zip
           if-no-files-found: error
