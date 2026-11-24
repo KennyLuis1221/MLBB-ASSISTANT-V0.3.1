@@ -12,7 +12,7 @@ class Audit131Test {
   assertTrue(d.items.values.all{i->i.recipe.all{it in d.items}})
   assertTrue(d.counters.keys.map{it.third}.containsAll(listOf("all","epic","legend","mythic","honor","glory")))
   assertTrue(Strategy13.eligible(d,d.items.getValue("Twilight Armor")))
-  for(i in d.items.values.filter{it.price!=null&&it.price>0}){
+  for(i in d.items.values.filter{(it.price?:0)>0}){
    val q=Recipe131.quote(d,i.name,emptyList(),null)
    assertEquals(i.name,i.price,q?.cost)
   }
