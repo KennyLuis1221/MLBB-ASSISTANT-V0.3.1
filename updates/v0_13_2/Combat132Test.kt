@@ -44,6 +44,10 @@ class Combat132Test {
   assertEquals(133,count)
   assertTrue(Combat132.events(d,"Cecilion").any{it.terms.size==2})
   assertTrue(Combat132.events(d,"Marcel").any{it.terms.size==3})
+  val ald=Combat132.stats(d,"Aldous",15,emptyList())!!
+  val soul=Combat132.events(d,"Aldous").first{it.terms.any{t->t.attribute=="soul steal stacks"}}
+  assertNull(Combat132.raw(soul,ald))
+  assertEquals(300.0,Combat132.raw(soul,ald,100)!!-Combat132.raw(soul,ald,0)!!,1e-8)
  }
  @Test fun teamsAndLoadouts(){
   val d=db()

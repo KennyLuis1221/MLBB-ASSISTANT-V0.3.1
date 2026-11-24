@@ -90,13 +90,18 @@ object Combat132 {
   return mitigate(raw,h.type,def,pct,flat)*h.hits
  }
  /** Extract only explicit single-hit base + one coefficient; never infer hit counts, ranks or proc uptime. */
- fun events(db:GameData13.Snapshot,hero:String):List<Event> = db.skills[hero].orEmpty().flatMap{s->
+ fun events(db:GameData13.Snapshot,hero:String):List<Event> {
+ val parsed=db.skills[hero].orEmpty().flatMap{s->
   scaling.findAll(s.description).map{m->
    val context=s.description.substring(0,m.range.first).takeLast(150).lowercase(java.util.Locale.ROOT)
    Event(s.name,m.groupValues[1].toDouble(),term.findAll(m.groupValues[2]).map{Term(it.groupValues[1].toDouble()/100,it.groupValues[2].trim().lowercase(java.util.Locale.ROOT))}.toList(),Damage.valueOf(m.groupValues[3].uppercase(java.util.Locale.ROOT)),context.contains("if ")||context.contains("additional")||context.contains("after ")||context.contains("each ")||context.contains("when "))
   }.toList()
  }
- fun raw(e:Event,a:Stats):Double?{
+ if(hero!="Aldous")return parsed
+ val skill=db.skills[hero].orEmpty().firstOrNull{it.description.contains("200 (+100% Total Physical Attack) (+ 3 per Soul Steal stack)")}
+ return if(skill==null)parsed else parsed+Event(skill.name,200.0,listOf(Term(1.0,"total physical attack"),Term(3.0,"soul steal stacks")),Damage.PHYSICAL,true)
+ }
+ fun raw(e:Event,a:Stats,soulStacks:Int?=null):Double?{
   var total=e.rawBase
   for(term in e.terms){
   val v=when(term.attribute){
@@ -105,6 +110,7 @@ object Combat132 {
    "total magic power","magic power"->a.magic
    "total hp","max hp"->a.hp
    "total mana","max mana"->a.mana
+   "soul steal stacks"->soulStacks?.takeIf{it in 0..1000}?.toDouble()
    "total physical defense"->a.pdef
    "total magic defense"->a.mdef
    else->null

@@ -30,12 +30,13 @@ rep(p,'    private fun showDatabase() {','''    private fun showCombat() {
         val trueDmg=input("Dano verdadeiro bruto (opcional)","")
         val hits=input("Número de hits de cada tipo","1")
         val sequence=input("Combo de eventos: índices separados por vírgula (opcional)","")
+        val stacks=input("Stacks Soul Steal (Aldous, opcional)","")
         val magicGuard=check("Ativar redução mágica temporária de Valkyrie's Shield no alvo")
         val shield=input("Escudo inicial do alvo","0")
         val rate=input("Ataques por segundo conhecidos (opcional)","")
         val heal=input("Cura bruta recebida (opcional)","")
         val anti=check("Lifebane ativo no alvo")
-        for(v in listOf(hero,enemy,level,enemyLevel,items,enemyItems,physical,magic,trueDmg,hits,sequence,shield,rate,heal))ui.addView(v)
+        for(v in listOf(hero,enemy,level,enemyLevel,items,enemyItems,physical,magic,trueDmg,hits,sequence,stacks,shield,rate,heal))ui.addView(v)
         ui.addView(anti);ui.addView(magicGuard)
         val out=card()
         ui.addView(button("CALCULAR"){
@@ -60,6 +61,7 @@ rep(p,'    private fun showDatabase() {','''    private fun showCombat() {
             }
             fun fmt(v:Double?)=v?.let{String.format(java.util.Locale.US,"%.1f",it)}?:"não disponível"
             val extracted=Combat132.events(db,h!!.name)
+            val soul=stacks.text.toString().toIntOrNull()?.takeIf{it in 0..1000}
             val sequenceText=sequence.text.toString().trim()
             if(sequenceText.isNotBlank()){
                 val indices=sequenceText.split(",",";").map{it.trim().toIntOrNull()}
@@ -67,7 +69,7 @@ rep(p,'    private fun showDatabase() {','''    private fun showCombat() {
                     out.addView(label("Confira os índices da lista de eventos; máximo 30.",12,muted))
                 }else{
                     val chosen=indices.map{extracted[it!!-1]}
-                    val rawEvents=chosen.map{ev->Combat132.raw(ev,a)?.let{Combat132.Hit(it,ev.type)}}
+                    val rawEvents=chosen.map{ev->Combat132.raw(ev,a,soul)?.let{Combat132.Hit(it,ev.type)}}
                     if(rawEvents.any{it==null})out.addView(label("Combo indisponível: atributo de escalamento ausente.",12,muted))
                     else {
                         val combo=Combat132.combo(rawEvents.filterNotNull(),a,d,sh,magicGuard.isChecked)
@@ -86,7 +88,7 @@ rep(p,'    private fun showDatabase() {','''    private fun showCombat() {
             heal.text.toString().toDoubleOrNull()?.takeIf{it.isFinite()&&it>=0}?.let{out.addView(label("Cura recebida no cenário: "+fmt(Combat132.shieldOrHeal(it,d,anti.isChecked)),13,white))}
             out.addView(label("EVENTOS DE HABILIDADE EXTRAÍDOS • valores da descrição, não ranks calculados",12,cyan,true))
             for((idx,ev) in extracted.withIndex()){
-                val raw=Combat132.raw(ev,a)
+                val raw=Combat132.raw(ev,a,soul)
                 out.addView(label((idx+1).toString()+". "+ev.skill+" • "+ev.type+" • bruto "+fmt(raw)+" • mitigado "+fmt(raw?.let{Combat132.hit(Combat132.Hit(it,ev.type),a,d)})+(if(ev.conditional)" • condicional" else " • evento isolado"),11,white))
             }
             out.addView(label("Efeitos não simulados: "+(a.unmodeled+d.unmodeled).distinct().joinToString("; "),11,muted))
