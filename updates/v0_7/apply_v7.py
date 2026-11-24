@@ -80,3 +80,42 @@ replace(gradle,'versionName = "0.7.0"','versionName = "0.7.0"\n        buildConf
 # Prevent stale legacy initial result from masquerading as observation.
 replace(s,'                    visionStatus = "Dados inimigos não detectados. Abra o placar durante o MLBB."','                    visionStatus = "Dados inimigos não detectados. Abra o placar durante o MLBB.", frameCount=0')
 print("V0.7 integrated")
+
+# Clean home: no mandatory developer inputs. The separate build page keeps manual fallback.
+text=m.read_text()
+a=text.index('        ui.addView(label("MEU HERÓI • OPCIONAL PARA TESTE"')
+b=text.index('        ui.addView(button("▶  INICIAR ASSISTÊNCIA AO VIVO"',a)
+text=text[:a]+text[b:]
+a=text.index('        ui.addView(button("▶  INICIAR ASSISTÊNCIA AO VIVO"')
+b=text.index('        ui.addView(label("PRIMEIRO ACESSO"',a)
+buttons=text[a:b]
+text=text[:a]+text[b:]
+a=text.index('        ui.addView(cloudConsent)')+len('        ui.addView(cloudConsent)')
+text=text[:a]+'\n'+buttons+text[a:]
+text=text.replace('            result.removeAllViews()\n            val picks = HeroCatalog.suggest(lane.selectedItem.toString()', '            prefs.edit().putString("lane_hint",lane.selectedItem.toString()).apply()\n            result.removeAllViews()\n            val picks = HeroCatalog.suggest(lane.selectedItem.toString()')
+m.write_text(text)
+# Cloud response mapper: use structured rows, not text-parsing of a status message.
+replace(u,'        armor: Boolean, healing: Boolean, magic: Boolean','        armor: Boolean, healing: Boolean, magic: Boolean, lane: String = "Selva"')
+replace(u,'                    "hero_hint" to heroHint,','                    "hero_hint" to heroHint,\n                    "lane_hint" to lane,')
+replace(u,'            val readSource = extracted?', '''            val rows=response.optJSONArray("players")
+            val players=buildList {
+                if(rows!=null)for(i in 0 until rows.length()){
+                    val r=rows.optJSONObject(i)?:continue
+                    val h=r.optString("hero").takeIf{it.isNotBlank()&&it!="null"}?:continue
+                    val team=when(r.optString("team")){"ally"->"Aliado";"enemy"->"Inimigo";else->"Incerto"}
+                    val a=r.optJSONArray("items")
+                    add(ObservedPlayer(h,team,if(a==null)emptyList()else(0 until a.length()).map{a.optString(it)},
+                        r.optString("gold").takeIf{it!="null"&&it.isNotBlank()},
+                        r.optString("kda").takeIf{it!="null"&&it.isNotBlank()}))
+                }
+            }
+            val picks=response.optJSONArray("draft_picks")
+            val draft=if(picks==null)emptyList()else(0 until picks.length()).mapNotNull{
+                picks.optJSONObject(it)?.optString("hero")?.takeIf{v->v.isNotBlank()}
+            }
+            val readSource = extracted?''')
+replace(u,'                visionStatus = response.optString("vision_status", "sem visão online")','''                visionStatus = response.optString("vision_status", "sem visão online"),
+                players=players,draftPicks=draft,
+                matchTime=response.optString("match_time").takeIf{it.isNotBlank()&&it!="null"},
+                observedAt=if(players.isNotEmpty()||draft.isNotEmpty()) android.os.SystemClock.elapsedRealtime() else 0L''')
+replace(s,'UploadClient.analyze(url, token, jpeg, sessionId, heroHint, armor, healing, magic)','UploadClient.analyze(url, token, jpeg, sessionId, heroHint, armor, healing, magic, getSharedPreferences("settings",MODE_PRIVATE).getString("lane_hint","Selva")?:"Selva")')
