@@ -452,7 +452,7 @@
 +                        requireNotNull(contentResolver.openInputStream(uri)).use { CatalogStorage.update(this, it) }
 +                    }
 +                    runOnUiThread {
-+                        imported.onSuccess { toast("Catálogo $it salvo. Encerre e reabra o aplicativo para usar.") }
++                        imported.onSuccess { toast("Catálogo $it salvo. Force a parada do aplicativo nas configurações do Android e abra novamente.") }
 +                            .onFailure { toast("Catálogo rejeitado: " + it.javaClass.simpleName) }
 +                    }
 +                }.start()
@@ -780,7 +780,7 @@
                      })
                      val update=history.record(frame)
                      historyText="Histórico local: "+update.frames+" quadros confirmados"+(if(update.reset)" • novo segmento" else "")
-@@ -167,7 +178,7 @@
+@@ -167,10 +178,9 @@
                  statsCandidates=emptyMap();clockCandidate=null;previousLevels=emptyMap()
              }
              if(lastSeen>0&&!Evidence14.fresh(now,lastSeen)){reset()}
@@ -788,8 +788,11 @@
 +            val hero = self
              val rivals=recent.filter{it.team=="Inimigo"}
              val own=recent.singleOrNull{it.hero==hero}
-             val foes=rivals.map{it.hero}
-@@ -180,33 +191,52 @@
+-            val foes=rivals.map{it.hero}
+             val enemyItems=rivals.flatMap{it.items}
+             val owned=own?.items?:emptyList()
+             val cash=if(strongShop&&board.rows.isEmpty()&&own!=null&&lastSeen>0&&Evidence14.fresh(now,lastSeen)&&cashProfile?.compatible(b.width,b.height)==true)
+@@ -180,33 +190,52 @@
                  val k=p.kda?.split("/")?.mapNotNull{it.toIntOrNull()}.orEmpty()
                  return StrategicEngine.Player(p.hero,p.items,p.gold?.toIntOrNull(),k.getOrNull(0),k.getOrNull(1),k.getOrNull(2),p.level)
              }
@@ -987,7 +990,7 @@
  class ProjectionService : Service() {
      companion object {
          const val ACTION_START = "com.mlbb.assistant.START"
-@@ -47,41 +41,77 @@
+@@ -47,41 +41,78 @@
          const val EXTRA_RESULT_DATA = "result_data"
          private const val CHANNEL = "mlbb_capture"
          private const val NOTIFICATION_ID = 37
@@ -1046,6 +1049,7 @@
 +    private var startedAt = 0L
 +    private val cloud = CloudAnalysis()
 +    private var currentEvidence: CloudEvidence? = null
++    private var currentEvidenceAt = 0L
 +    private var lastForegroundCheck = 0L
 +    private var foregroundActivity: Pair<String?, String?>? = null
 +    private var latestResult: AnalysisResult? = null
@@ -1092,7 +1096,7 @@
          }
      }
  
-@@ -92,238 +122,342 @@
+@@ -92,238 +123,345 @@
              stopSelf()
              return START_NOT_STICKY
          }
@@ -1370,9 +1374,13 @@
 +
 +    private fun publishLocal(result: AnalysisResult, generation: Long) {
 +        if (!active || paused || generation != revision.get()) return
++        val now = SystemClock.elapsedRealtime()
 +        latestResult = result
-+        val evidence = CloudEvidence.from(result, SystemClock.elapsedRealtime())
-+        currentEvidence = evidence
++        val evidence = CloudEvidence.from(result, now)
++        if (evidence != null || result.currentBoard || result.observedAt != currentEvidenceAt) {
++            currentEvidence = evidence
++            currentEvidenceAt = if (evidence != null) result.observedAt else 0L
++        }
 +        render()
 +        if (url.isBlank() || evidence == null || !cloud.start(evidence, SystemClock.elapsedRealtime())) return
 +        render()
@@ -1467,9 +1475,7 @@
 +
 +    private fun render() {
 +        val now = SystemClock.elapsedRealtime()
-+        val evidence = currentEvidence?.takeIf {
-+            latestResult?.let { local -> Evidence14.pairFresh(now, local.observedAt) } == true
-+        }
++        val evidence = currentEvidence?.takeIf { Evidence14.fresh(now, currentEvidenceAt) }
 +        val state = cloud.status(evidence, now)
 +        if (BuildConfig.CLOUD_AVAILABLE && diagnostic.mode == "IA") diagnostic.cloud(state)
 +        val local = latestResult ?: return
@@ -1482,6 +1488,7 @@
 +    private fun interruptResult(message: String, error: String? = null) {
 +        revision.incrementAndGet()
 +        currentEvidence = null
++        currentEvidenceAt = 0L
 +        latestResult = null
 +        cloud.clear()
 +        diagnostic.state(message, error)

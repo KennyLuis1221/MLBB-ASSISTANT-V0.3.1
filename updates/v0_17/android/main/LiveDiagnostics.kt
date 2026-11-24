@@ -45,7 +45,7 @@ internal class LiveDiagnostics(context: Context) {
 
     @Synchronized
     fun analyzed(result: AnalysisResult, duration: Long) {
-        fields.put("quadros_processados", result.frameCount)
+        fields.put("captura", "Captura ativa").put("quadros_processados", result.frameCount)
             .put("ultima_analise_utc", Instant.now().toString())
             .put("latencia_local_ms", duration)
             .put("estado", result.status)
@@ -57,7 +57,7 @@ internal class LiveDiagnostics(context: Context) {
             .put("latencia_maxima_ms", maxOf(fields.optLong("latencia_maxima_ms"), duration))
             .put("placar_atual", result.currentBoard)
             .put("justificativa_base", result.reason)
-        if (result.currentBoard) fields.put("idade_observacao_ms",
+        if (result.observedAt > 0) fields.put("idade_observacao_ms",
             (SystemClock.elapsedRealtime() - result.observedAt).coerceAtLeast(0))
         else fields.remove("idade_observacao_ms")
         result.localError?.let { fields.put("ultimo_erro", it) }

@@ -369,7 +369,10 @@ jobs:
             android-app/
             server/
             tools/
-            updates/v0_17/
+            updates/
+            deploy/
+            .github/workflows/development-v023.yml
+            MLBB_ASSISTANT_CODIGO_GITHUB.zip
             *.md
             !android-app/.gradle/**
             !android-app/app/build/**
