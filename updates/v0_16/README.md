@@ -1,0 +1,2 @@
+# DEV V0.16: ampliar fórmulas com estado explícito
+Fonte: snapshot comunitário já incorporado, linhas D/E do strategy13.tsv: Balmond, Lunox, Gloo, Holy Crystal, Blood Wings, War Axe, Demon Hunter Sword. Fórmulas de HP adicional, HP do alvo e HP perdido exigem valor fornecido; não presumir HP de alvo nem stacks. Bônus condicionais são cenários explícitos de simulador, não modelo de ativação automática. Removida presunção de nível 15 para inimigos sem nível conhecido no ganho marginal. Não classifica todas as passivas como completas. Não publicar APK.
