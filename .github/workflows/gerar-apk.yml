@@ -12,6 +12,7 @@ on:
       - 'updates/v0_6_1/**'
       - 'updates/v0_7/**'
       - 'updates/v0_7_1/**'
+      - 'updates/v0_7_2/**'
 
 permissions:
   contents: read
@@ -217,6 +218,8 @@ jobs:
           python3 updates/v0_7_1/backend.py
           python3 updates/v0_7_1/android.py
           cp updates/v0_7_1/test_production.py server/
+          cp updates/v0_7_2/*.py server/
+          python3 updates/v0_7_2/apply.py
           python3 -m pip install -r server/requirements.txt pytest pytest-asyncio
           cd server
           python3 -m pytest -q
@@ -281,7 +284,7 @@ jobs:
       - name: Disponibilizar APK para download
         uses: actions/upload-artifact@v4
         with:
-          name: MLBB-ASSISTANT-V0.7.1-APK
+          name: MLBB-ASSISTANT-V0.7.2-APK
           path: android-app/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
 
@@ -289,11 +292,11 @@ jobs:
         shell: bash
         run: |
           cp updates/v0_7/README.md README_V0_7.md
-          zip -q -r MLBB_ASSISTANT_V0_7_1_SOURCE.zip android-app server README_V0_7.md render.yaml -x '*/build/*' '*/.gradle/*' '*/__pycache__/*'
+          zip -q -r MLBB_ASSISTANT_V0_7_2_SOURCE.zip android-app server README_V0_7.md render.yaml -x '*/build/*' '*/.gradle/*' '*/__pycache__/*'
 
       - name: Disponibilizar codigo-fonte atualizado
         uses: actions/upload-artifact@v4
         with:
-          name: MLBB-ASSISTANT-V0.7.1-FONTES
-          path: MLBB_ASSISTANT_V0_7_1_SOURCE.zip
+          name: MLBB-ASSISTANT-V0.7.2-FONTES
+          path: MLBB_ASSISTANT_V0_7_2_SOURCE.zip
           if-no-files-found: error
