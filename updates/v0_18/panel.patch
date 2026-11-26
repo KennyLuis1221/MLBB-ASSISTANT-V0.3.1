@@ -1,0 +1,437 @@
+--- a/android-app/app/src/main/java/com/mlbb/assistant/OverlayPanel.kt
++++ b/android-app/app/src/main/java/com/mlbb/assistant/OverlayPanel.kt
+@@ -1,7 +1,11 @@
+ package com.mlbb.assistant
+ 
+ import android.content.Context
+-import android.graphics.Color
++import android.content.res.Configuration
++import android.graphics.Point
++import android.hardware.display.DisplayManager
++import android.os.Build
++import android.view.WindowInsets
+ import android.graphics.Typeface
+ import android.graphics.drawable.GradientDrawable
+ import android.os.SystemClock
+@@ -16,7 +20,13 @@
+ 
+ /** Painel inspirado na prévia aprovada: dados reais em cartões separados.
+  * Sem imagens fictícias, percentuais inventados nem toques no jogo. */
+-class OverlayPanel(private val context:Context,private val onPause:()->Unit,private val onStop:()->Unit) {
++class OverlayPanel(serviceContext:Context,private val onPause:()->Unit,private val onStop:()->Unit) {
++    private val context = if (Build.VERSION.SDK_INT >= 30) {
++        val displays = requireNotNull(serviceContext.getSystemService(DisplayManager::class.java))
++        val display = requireNotNull(displays.getDisplay(android.view.Display.DEFAULT_DISPLAY))
++        serviceContext.createDisplayContext(display)
++            .createWindowContext(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY, null)
++    } else serviceContext
+     private val wm=context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
+     private val navy=0xF50A1526.toInt();private val cyan=0xFF39CFFF.toInt()
+     private val gold=0xFFECC16B.toInt();private val white=0xFFF0F6FF.toInt()
+@@ -31,8 +41,25 @@
+             timer.postDelayed(this,1000)
+         }
+     }
+-    private val surface=column().apply{setPadding(dp(7),dp(6),dp(7),dp(6));background=bg(navy,gold,15)}
++    private val surface = object : LinearLayout(context) {
++        override fun onConfigurationChanged(newConfig: Configuration) {
++            super.onConfigurationChanged(newConfig)
++            post { if (attached) layoutPanel() }
++        }
++    }.apply {
++        orientation = LinearLayout.VERTICAL
++        setPadding(dp(7), dp(6), dp(7), dp(6))
++        background = bg(navy, gold, 15)
++    }
+     private val heading=label("M",18,gold,true)
++    private val header = row().apply {
++        gravity = Gravity.CENTER_VERTICAL
++        minimumHeight = dp(48)
++        isFocusable = true
++        addView(heading, LinearLayout.LayoutParams(0, -2, 1f))
++        setOnClickListener { toggle() }
++        setOnTouchListener(Drag())
++    }
+     private val content=column()
+     private val scroll=ScrollView(context).apply { isFillViewport=false;addView(content) }
+     private val status=label("Aguardando captura",12,cyan,true)
+@@ -55,16 +82,11 @@
+     private val p=WindowManager.LayoutParams(dp(62),WindowManager.LayoutParams.WRAP_CONTENT,
+         WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+         WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+-        WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or WindowManager.LayoutParams.FLAG_SECURE or
++        WindowManager.LayoutParams.FLAG_SECURE or
+         WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
+         android.graphics.PixelFormat.TRANSLUCENT).apply { gravity=Gravity.TOP or Gravity.END;x=dp(8);y=dp(70) }
+ 
+-    fun show(){
+-        if(attached)return
+-        val header=row().apply{
+-            gravity=Gravity.CENTER_VERTICAL;addView(heading,LinearLayout.LayoutParams(0,-2,1f))
+-            setOnTouchListener(Drag())
+-        }
++    init {
+         surface.addView(header)
+         surface.addView(scroll)
+         content.addView(card(cyan).apply{addView(status)})
+@@ -89,32 +111,76 @@
+         content.addView(card(0xFF345776.toInt()).apply{
+             addView(clock);addView(diagnostic)
+         })
+-        val pause=action("Pausar"){paused=!paused;onPause()}
+-        pause.setOnClickListener{paused=!paused;pause.text=if(paused)"Retomar" else "Pausar";onPause()}
++        val pause = label("Pausar", 12, white, true)
++        styleAction(pause)
++        pause.setOnClickListener {
++            paused = !paused
++            pause.text = if (paused) "Retomar" else "Pausar"
++            onPause()
++        }
+         content.addView(row().apply{
+             addView(pause,LinearLayout.LayoutParams(0,dp(36),1f))
+             addView(action("Encerrar"){onStop()},LinearLayout.LayoutParams(0,dp(36),1f))
+         })
+-        scroll.visibility=View.GONE
+-        wm.addView(surface,p);attached=true;timer.post(tick)
+-    }
+-    private fun toggle(){
+-        expanded=!expanded
+-        heading.text=if(expanded)"◈  MLBB ASSISTANT   −" else if(lastResult!=null)"M •" else "M"
+-        scroll.visibility=if(expanded)View.VISIBLE else View.GONE
+-        val metrics=context.resources.displayMetrics
+-        p.width=if(expanded) minOf(dp(320), (metrics.widthPixels*.44).toInt().coerceAtLeast(dp(220))) else dp(62)
+-        scroll.layoutParams=LinearLayout.LayoutParams(-1,if(expanded) minOf(dp(460),(metrics.heightPixels*.75).toInt()) else 0)
+-        clamp();if(attached)wm.updateViewLayout(surface,p)
++        clearResult("Aguardando captura")
++    }
++
++    fun show() {
++        if (attached) return
++        updateHeading()
++        layoutPanel()
++        wm.addView(surface, p)
++        attached = true
++        timer.post(tick)
++    }
++    private fun updateHeading() {
++        val data = lastResult
++        val hasEvidence = data != null &&
++            (data.hero != null || data.players.isNotEmpty() || data.draftPicks.isNotEmpty() || data.item != null)
++        heading.text = if (expanded) "◈  MLBB ASSISTANT   −" else if (hasEvidence) "M •" else "M"
++        header.contentDescription = if (expanded) "Recolher painel" else "Expandir painel"
++    }
++
++    private fun toggle() {
++        expanded = !expanded
++        updateHeading()
++        layoutPanel()
+         if (expanded) lastResult?.let(::renderExpanded)
+     }
++
++    @Suppress("DEPRECATION")
++    private fun availableSize(): Point {
++        if (Build.VERSION.SDK_INT < 30) return Point().also { wm.defaultDisplay.getSize(it) }
++        val metrics = wm.currentWindowMetrics
++        val insets = metrics.windowInsets.getInsetsIgnoringVisibility(
++            WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout())
++        return Point((metrics.bounds.width() - insets.left - insets.right).coerceAtLeast(1),
++            (metrics.bounds.height() - insets.top - insets.bottom).coerceAtLeast(1))
++    }
++
++    private fun layoutPanel() {
++        val size = availableSize()
++        val preferred = if (expanded) (size.x * .44).toInt().coerceIn(dp(220), dp(320)) else dp(62)
++        p.width = minOf(preferred, size.x)
++        val headerWidth = (p.width - surface.paddingLeft - surface.paddingRight).coerceAtLeast(0)
++        header.measure(View.MeasureSpec.makeMeasureSpec(headerWidth, View.MeasureSpec.EXACTLY),
++            View.MeasureSpec.UNSPECIFIED)
++        val chrome = header.measuredHeight + surface.paddingTop + surface.paddingBottom
++        val height = if (expanded) minOf(dp(460), (size.y * .75).toInt(), (size.y - chrome).coerceAtLeast(0)) else 0
++        scroll.layoutParams = LinearLayout.LayoutParams(-1, height)
++        scroll.visibility = if (expanded) View.VISIBLE else View.GONE
++        p.height = minOf(chrome + height, size.y)
++        clamp(size)
++        if (attached) wm.updateViewLayout(surface, p)
++    }
++
+     fun showStatus(message: String) {
+         status.text = message
+     }
+ 
+     fun clearResult(message: String) {
+         lastResult = null
+-        if (!expanded) heading.text = "M"
++        updateHeading()
+         showStatus(message)
+         diagnostic.text = ""
+         clock.text = ""
+@@ -122,6 +188,7 @@
+         heroSource.text = ""
+         heroPortrait.setImageDrawable(null)
+         heroPortrait.visibility = View.GONE
++        title.text = "PRÓXIMA COMPRA RECOMENDADA"
+         item.text = "Aguardando leitura atual"
+         itemArt.setImageDrawable(null)
+         itemArt.visibility = View.GONE
+@@ -132,14 +199,20 @@
+         economy.text = ""
+         iaStatus.text = ""
+         iaAdvice.text = ""
++        iaStatus.visibility = View.GONE
++        iaAdvice.visibility = View.GONE
+         playerRows.removeAllViews()
+     }
+ 
+     fun showResult(result:AnalysisResult){
++        if (result.observedAt > 0 && !Evidence14.fresh(SystemClock.elapsedRealtime(), result.observedAt)) {
++            clearResult("Dados antigos • abra o placar")
++            return
++        }
+         lastResult=result
+         status.text=result.status
+         if (!expanded) {
+-            heading.text = if (result.hero != null) "M •" else "M"
++            updateHeading()
+             return
+         }
+         renderExpanded(result)
+@@ -155,7 +228,10 @@
+     private fun renderExpanded(result: AnalysisResult) {
+         hero.text=result.hero?:"Não identificado"
+         heroSource.text=result.source
+-        val own=result.players.singleOrNull{if(result.ownPlayerId!=null)it.playerId==result.ownPlayerId else it.hero.equals(result.hero,true)}
++        val own = result.players.singleOrNull {
++            it.team == "Aliado" && (if (result.ownPlayerId != null) it.playerId == result.ownPlayerId
++                                    else it.hero.equals(result.hero, true))
++        }
+         heroPortrait.setImageBitmap(own?.portrait)
+         heroPortrait.visibility=if(own?.portrait!=null)View.VISIBLE else View.GONE
+         title.text=if(result.draftPicks.isNotEmpty())"SMART HERO PICK" else "PRÓXIMA COMPRA RECOMENDADA"
+@@ -190,7 +266,7 @@
+         for(group in groups){
+             if(group.rows.isEmpty()&&group.expected==null)continue
+             val count=group.expected?.let{"/"+it}?: ""
+-            playerRows.addView(label(group.label.uppercase(java.util.Locale.ROOT)+" • "+group.rows.size+count+" reconhecidos",11,cyan,true))
++            playerRows.addView(label(group.label.uppercase(java.util.Locale.ROOT)+" • "+group.rows.size+count+" linhas observadas",11,cyan,true))
+             if(group.rows.isEmpty())playerRows.addView(label("Sem observação suficiente.",10,muted))
+             for(er in group.rows){
+             val r=result.players.singleOrNull{if(er.id!=null)it.playerId==er.id else it.hero==er.hero&&it.team==er.side}?:continue
+@@ -230,23 +306,24 @@
+         }
+     }
+     fun remove(){timer.removeCallbacks(tick);if(attached){runCatching{wm.removeView(surface)};attached=false}}
+-    private fun clamp(){
+-        val m=context.resources.displayMetrics
+-        p.x=p.x.coerceIn(0,(m.widthPixels-p.width).coerceAtLeast(0))
+-        p.y=p.y.coerceIn(0,(m.heightPixels-(if(expanded) scroll.layoutParams.height+dp(45) else dp(65))).coerceAtLeast(0))
++    private fun clamp(size: Point) {
++        p.x = p.x.coerceIn(0, (size.x - p.width).coerceAtLeast(0))
++        p.y = p.y.coerceIn(0, (size.y - p.height).coerceAtLeast(0))
+     }
+     private inner class Drag:View.OnTouchListener{
++        private var size = Point()
+         var ix=0;var iy=0;var dx=0f;var dy=0f;var moved=false
+         override fun onTouch(v:View,e:MotionEvent):Boolean{
+             when(e.actionMasked){
+-                MotionEvent.ACTION_DOWN->{ix=p.x;iy=p.y;dx=e.rawX;dy=e.rawY;moved=false;return true}
++                MotionEvent.ACTION_DOWN->{size=availableSize();ix=p.x;iy=p.y;dx=e.rawX;dy=e.rawY;moved=false;return true}
+                 MotionEvent.ACTION_MOVE->{
+                     val x=(e.rawX-dx).toInt();val y=(e.rawY-dy).toInt()
+                     if(kotlin.math.abs(x)>dp(6)||kotlin.math.abs(y)>dp(6))moved=true
+-                    if(moved){p.x=ix-x;p.y=iy+y;clamp();if(attached)wm.updateViewLayout(surface,p)}
++                    if(moved){p.x=if(v.layoutDirection==View.LAYOUT_DIRECTION_RTL) ix+x else ix-x;p.y=iy+y;clamp(size);if(attached)wm.updateViewLayout(surface,p)}
+                     return true
+                 }
+-                MotionEvent.ACTION_UP->{if(!moved)toggle();return true}
++                MotionEvent.ACTION_UP->{if(!moved)v.performClick();return true}
++                MotionEvent.ACTION_CANCEL->return true
+             };return false
+         }
+     }
+@@ -260,8 +337,13 @@
+         text=s;textSize=size.toFloat();setTextColor(color);setPadding(dp(2),dp(2),dp(2),dp(2))
+         if(bold)setTypeface(null,Typeface.BOLD)
+     }
++    private fun styleAction(view: TextView) = with(view) {
++        gravity = Gravity.CENTER
++        background = bg(0xFF1B3957.toInt(), 0xFF315D83.toInt(), 8)
++    }
+     private fun action(s:String,click:()->Unit)=label(s,12,white,true).apply{
+-        gravity=Gravity.CENTER;background=bg(0xFF1B3957.toInt(),0xFF315D83.toInt(),8);setOnClickListener{click()}
++        styleAction(this)
++        setOnClickListener { click() }
+     }
+     private fun bg(fill:Int,stroke:Int,radius:Int)=GradientDrawable().apply{setColor(fill);setStroke(dp(1),stroke);cornerRadius=dp(radius).toFloat()}
+     private fun dp(n:Int)=(n*context.resources.displayMetrics.density).toInt()
+--- a/android-app/app/src/main/java/com/mlbb/assistant/ProjectionService.kt
++++ b/android-app/app/src/main/java/com/mlbb/assistant/ProjectionService.kt
+@@ -28,7 +28,7 @@
+ import android.os.Process
+ import android.os.SystemClock
+ import android.provider.Settings
+-import android.view.WindowManager
++import android.view.Display
+ import java.nio.ByteBuffer
+ import java.util.concurrent.Executors
+ import java.util.concurrent.atomic.AtomicLong
+@@ -52,6 +52,7 @@
+     private val revision = AtomicLong()
+     @Volatile private var active = false
+     @Volatile private var paused = false
++    @Volatile private var contentVisible = true
+     @Volatile private var reader: ImageReader? = null
+     @Volatile private var lastFrame = 0L
+     private var display: VirtualDisplay? = null
+@@ -86,7 +87,7 @@
+             if (!active) return
+             val now = SystemClock.elapsedRealtime()
+             val reference = maxOf(lastFrame, startedAt)
+-            if (!paused && now - reference > NO_FRAME_MS) {
++            if (!paused && contentVisible && now - reference > NO_FRAME_MS) {
+                 interruptResult("Captura sem novos quadros", "Sem novos quadros")
+             }
+             ui.postDelayed(this, 2_000)
+@@ -102,7 +103,12 @@
+         override fun onCapturedContentResize(width: Int, height: Int) = resizeCapture(width, height)
+ 
+         override fun onCapturedContentVisibilityChanged(isVisible: Boolean) {
+-            if (!isVisible && active) interruptResult("Conteúdo do MLBB fora de foco")
++            if (!active || contentVisible == isVisible) return
++            contentVisible = isVisible
++            if (!paused) {
++                if (isVisible) overlay?.showStatus("Aguardando quadro novo")
++                else interruptResult("Conteúdo do MLBB fora de foco")
++            }
+         }
+     }
+ 
+@@ -153,7 +159,8 @@
+             projection?.registerCallback(projectionCallback, ui)
+             overlay = OverlayPanel(this, onPause = {
+                 paused = !paused
+-                if (paused) interruptResult("Captura pausada") else overlay?.showStatus("Aguardando quadro novo")
++                if (paused) interruptResult("Captura pausada")
++                else overlay?.showStatus(if (contentVisible) "Aguardando quadro novo" else "Conteúdo do MLBB fora de foco")
+             }, onStop = { stopSelf() }).also { it.show() }
+             capture?.post {
+                 if (active) runCatching { OfflineTextAnalyzer(this) }
+@@ -174,7 +181,7 @@
+ 
+     @Suppress("DEPRECATION")
+     private fun screenSize() = Point().also {
+-        checkNotNull(getSystemService(WindowManager::class.java)).defaultDisplay.getRealSize(it)
++        checkNotNull(displays.getDisplay(Display.DEFAULT_DISPLAY)).getRealSize(it)
+     }
+ 
+     private fun resizeCapture(width: Int, height: Int) {
+@@ -208,7 +215,11 @@
+         }
+         val previous = reader
+         reader = next
+-        interruptResult("Captura ativa • ${width}×${height}")
++        interruptResult(when {
++            paused -> "Captura pausada"
++            !contentVisible -> "Conteúdo do MLBB fora de foco"
++            else -> "Captura ativa • ${width}×${height}"
++        })
+         diagnostic.resolution(width, height)
+         if (previous != null) {
+             previous.setOnImageAvailableListener(null, null)
+@@ -219,14 +230,14 @@
+ 
+     private fun captureFrame(source: ImageReader) {
+         if (!active || source !== reader) return
++        val generation = revision.get()
+         val image = try {
+             source.acquireLatestImage()
+         } catch (error: IllegalStateException) {
+-            diagnostic.state("Falha ao ler quadro", error.javaClass.simpleName)
++            reportFrameError(generation, "Falha ao ler quadro", error)
+             return
+         } ?: return
+         val now = SystemClock.elapsedRealtime()
+-        val generation = revision.get()
+         var bitmap: Bitmap? = null
+         image.use {
+             diagnostic.received(++captured, now)
+@@ -236,7 +247,7 @@
+             }
+             previousTimestamp = image.timestamp
+             lastFrame = now
+-            if (paused || now < nextAnalysisAt) return
++            if (paused || !contentVisible || now < nextAnalysisAt) return
+             nextAnalysisAt = FrameBudget.nextDue(now, nextAnalysisAt)
+             if (!gameInForeground()) {
+                 ui.post {
+@@ -251,9 +262,7 @@
+             try {
+                 bitmap = decodeFrame(image)
+             } catch (error: Exception) {
+-                diagnostic.count("quadros_descartados")
+-                diagnostic.count("erros")
+-                diagnostic.state("Erro na conversão RGBA", error.javaClass.simpleName)
++                reportFrameError(generation, "Erro na conversão RGBA", error)
+             }
+         }
+         val frame = bitmap ?: return
+@@ -273,7 +282,7 @@
+                 ui.post {
+                     if (active && generation == revision.get()) {
+                         diagnostic.deadlineExceeded(duration)
+-                        overlay?.showStatus("Quadro excedeu 1 s • aguardando nova leitura")
++                        interruptResult("Quadro excedeu 1 s • aguardando nova leitura")
+                     }
+                 }
+                 return
+@@ -290,7 +299,7 @@
+                 val finished = SystemClock.elapsedRealtime()
+                 if (!FrameBudget.withinDeadline(finished, now)) {
+                     diagnostic.deadlineExceeded(finished - now)
+-                    overlay?.showStatus("Quadro excedeu 1 s • aguardando nova leitura")
++                    interruptResult("Quadro excedeu 1 s • aguardando nova leitura")
+                     return@post
+                 }
+                 if (!result.frameValid) {
+@@ -308,7 +317,8 @@
+                     val elapsed = SystemClock.elapsedRealtime() - now
+                     if (elapsed > FrameBudget.DEADLINE_MS) {
+                         diagnostic.deadlineExceeded(elapsed)
+-                        overlay?.showStatus("Painel ultrapassou 1 s • aguardando nova leitura")
++                        if (latestResult === completed)
++                            interruptResult("Painel ultrapassou 1 s • aguardando nova leitura")
+                     } else {
+                         processed++
+                         diagnostic.analyzed(completed.copy(frameCount = processed), elapsed, duration)
+@@ -322,9 +332,18 @@
+                 }
+             }
+         } catch (error: Exception) {
+-            diagnostic.state("Erro na análise local", error.javaClass.simpleName)
++            reportFrameError(generation, "Erro na análise local", error)
+         } finally {
+             frame.recycle()
++        }
++    }
++
++    private fun reportFrameError(generation: Long, message: String, error: Exception) {
++        ui.post {
++            if (!active || paused || !contentVisible || generation != revision.get()) return@post
++            diagnostic.count("quadros_descartados")
++            diagnostic.count("erros")
++            interruptResult(message, error.javaClass.simpleName)
+         }
+     }
+ 
+--- a/android-app/app/src/main/java/com/mlbb/assistant/LiveDiagnostics.kt
++++ b/android-app/app/src/main/java/com/mlbb/assistant/LiveDiagnostics.kt
+@@ -117,7 +117,9 @@
+         fields.put("placar_atual", false).put("dados_atuais", false)
+             .put("jogadores", JSONArray()).put("heroi_proprio", JSONObject.NULL)
+             .put("base", JSONObject.NULL).put("tempo_partida", JSONObject.NULL)
+-        fields.remove("idade_observacao_ms")
++        for (key in listOf("idade_observacao_ms", "justificativa_base", "ocr", "estado_versao", "ia",
++                "tempo_estimado", "inventario_completo")) fields.remove(key)
++        fields.put("estado", status)
+         state(status, reason)
+     }
+ 
