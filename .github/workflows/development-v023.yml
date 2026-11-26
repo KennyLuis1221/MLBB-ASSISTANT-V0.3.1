@@ -423,12 +423,31 @@ jobs:
           profile: pixel_2
           disable-animations: true
           working-directory: android-app
-          script: gradle --no-daemon :app:connectedBaseDebugAndroidTest :app:connectedIaDebugAndroidTest
+          script: gradle --no-daemon --continue -PmlbbCommit="$GITHUB_SHA" :app:connectedBaseDebugAndroidTest :app:connectedIaDebugAndroidTest
 
-      - name: Guardar resultados dos testes em emulador
+      - name: Guardar resultados dos testes no Android 15
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: MLBB-testes-do-painel
+          name: MLBB-testes-do-painel-Android-15
+          path: android-app/app/build/outputs/androidTest-results/connected/
+          if-no-files-found: warn
+
+      - name: Testar painel Base e IA em Android 10
+        id: painel_android_10
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          working-directory: android-app
+          script: gradle --no-daemon --continue -PmlbbCommit="$GITHUB_SHA" :app:connectedBaseDebugAndroidTest :app:connectedIaDebugAndroidTest
+
+      - name: Guardar resultados dos testes no Android 10
+        if: always() && steps.painel_android_10.outcome != 'skipped'
+        uses: actions/upload-artifact@v4
+        with:
+          name: MLBB-testes-do-painel-Android-10
           path: android-app/app/build/outputs/androidTest-results/connected/
           if-no-files-found: warn

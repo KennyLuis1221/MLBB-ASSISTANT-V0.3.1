@@ -109,6 +109,28 @@ class OverlayPanelTest {
         assertFalse(views(root()).filterIsInstance<TextView>().any { it.text == "Compra de teste" })
     }
 
+    @Test fun draggingClampsAtTheEdgeWithoutExpanding() = main {
+        val view = header()
+        val params = root().layoutParams as WindowManager.LayoutParams
+        fun drag(delta: Float) {
+            val start = SystemClock.uptimeMillis()
+            for ((action, offset) in listOf(MotionEvent.ACTION_DOWN to 0f,
+                    MotionEvent.ACTION_MOVE to delta, MotionEvent.ACTION_UP to delta)) {
+                val event = MotionEvent.obtain(start, start, action, 10f + offset, 10f, 0)
+                try { view.dispatchTouchEvent(event) } finally { event.recycle() }
+            }
+        }
+        view.layoutDirection = View.LAYOUT_DIRECTION_LTR
+        drag(10_000f)
+        assertEquals(0, params.x)
+        drag(-45f)
+        assertEquals(45, params.x)
+        view.layoutDirection = View.LAYOUT_DIRECTION_RTL
+        drag(45f)
+        assertEquals(90, params.x)
+        assertEquals(View.GONE, scroll().visibility)
+    }
+
     @Test fun reattachingDoesNotDuplicateViewsOrCallbacks() {
         main { panel.remove() }
         instrumentation.waitForIdleSync()

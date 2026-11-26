@@ -28,7 +28,7 @@
      private val wm=context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
      private val navy=0xF50A1526.toInt();private val cyan=0xFF39CFFF.toInt()
      private val gold=0xFFECC16B.toInt();private val white=0xFFF0F6FF.toInt()
-@@ -31,8 +41,25 @@
+@@ -31,15 +41,32 @@
              timer.postDelayed(this,1000)
          }
      }
@@ -55,6 +55,15 @@
      private val content=column()
      private val scroll=ScrollView(context).apply { isFillViewport=false;addView(content) }
      private val status=label("Aguardando captura",12,cyan,true)
+-    private val hero=label("Não identificado",16,white,true)
++    private val hero=label(context.getString(R.string.panel_unknown_hero),16,white,true)
+     private val heroPortrait=ImageView(context).apply{scaleType=ImageView.ScaleType.CENTER_CROP;background=bg(0xFF172D46.toInt(),cyan,24);clipToOutline=true}
+     private val heroSource=label("Sem evidência visual",10,muted)
+-    private val title=label("PRÓXIMA COMPRA RECOMENDADA",11,cyan,true)
++    private val title=label(context.getString(R.string.panel_next_purchase),11,cyan,true)
+     private val item=label("Aguardando informações",19,gold,true)
+     private val itemArt=ImageView(context).apply { scaleType=ImageView.ScaleType.CENTER_CROP;background=bg(0xFF132C49.toInt(),gold,9);clipToOutline=true }
+     private val reason=label("Abra o placar durante a partida.",12,white)
 @@ -55,16 +82,11 @@
      private val p=WindowManager.LayoutParams(dp(62),WindowManager.LayoutParams.WRAP_CONTENT,
          WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
@@ -74,7 +83,7 @@
          surface.addView(header)
          surface.addView(scroll)
          content.addView(card(cyan).apply{addView(status)})
-@@ -89,32 +111,76 @@
+@@ -89,40 +111,85 @@
          content.addView(card(0xFF345776.toInt()).apply{
              addView(clock);addView(diagnostic)
          })
@@ -165,14 +174,17 @@
          showStatus(message)
          diagnostic.text = ""
          clock.text = ""
-@@ -122,6 +188,7 @@
+-        hero.text = "Não identificado"
++        hero.setText(R.string.panel_unknown_hero)
          heroSource.text = ""
          heroPortrait.setImageDrawable(null)
          heroPortrait.visibility = View.GONE
-+        title.text = "PRÓXIMA COMPRA RECOMENDADA"
-         item.text = "Aguardando leitura atual"
+-        item.text = "Aguardando leitura atual"
++        title.setText(R.string.panel_next_purchase)
++        item.setText(R.string.panel_waiting_reading)
          itemArt.setImageDrawable(null)
          itemArt.visibility = View.GONE
+         reason.text = ""
 @@ -132,14 +199,20 @@
          economy.text = ""
          iaStatus.text = ""
@@ -195,9 +207,12 @@
              return
          }
          renderExpanded(result)
-@@ -155,7 +228,10 @@
+@@ -153,12 +226,15 @@
+     }
+ 
      private fun renderExpanded(result: AnalysisResult) {
-         hero.text=result.hero?:"Não identificado"
+-        hero.text=result.hero?:"Não identificado"
++        hero.text = result.hero ?: context.getString(R.string.panel_unknown_hero)
          heroSource.text=result.source
 -        val own=result.players.singleOrNull{if(result.ownPlayerId!=null)it.playerId==result.ownPlayerId else it.hero.equals(result.hero,true)}
 +        val own = result.players.singleOrNull {
@@ -206,7 +221,11 @@
 +        }
          heroPortrait.setImageBitmap(own?.portrait)
          heroPortrait.visibility=if(own?.portrait!=null)View.VISIBLE else View.GONE
-         title.text=if(result.draftPicks.isNotEmpty())"SMART HERO PICK" else "PRÓXIMA COMPRA RECOMENDADA"
+-        title.text=if(result.draftPicks.isNotEmpty())"SMART HERO PICK" else "PRÓXIMA COMPRA RECOMENDADA"
++        title.text=if(result.draftPicks.isNotEmpty())"SMART HERO PICK" else context.getString(R.string.panel_next_purchase)
+         item.text=if(result.draftPicks.isNotEmpty())result.draftPicks.mapIndexed{i,s->"${i+1}. $s"}.joinToString("\n") else result.item?:"Aguardando dados"
+         val art=result.players.asSequence().mapNotNull{it.itemImages[result.item]}.firstOrNull()
+         itemArt.setImageBitmap(art)
 @@ -190,7 +266,7 @@
          for(group in groups){
              if(group.rows.isEmpty()&&group.expected==null)continue
@@ -216,8 +235,28 @@
              if(group.rows.isEmpty())playerRows.addView(label("Sem observação suficiente.",10,muted))
              for(er in group.rows){
              val r=result.players.singleOrNull{if(er.id!=null)it.playerId==er.id else it.hero==er.hero&&it.team==er.side}?:continue
-@@ -230,23 +306,24 @@
-         }
+@@ -222,31 +298,39 @@
+         refreshAge(result)
+     }
+     private fun refreshAge(result:AnalysisResult) {
+-        val age=if(result.observedAt>0) ((SystemClock.elapsedRealtime()-result.observedAt).coerceAtLeast(0)/1000).toString()+"s" else "sem observação"
+-        clock.text="Quadros: ${result.frameCount}  •  Última leitura: $age"+
+-            (result.matchTime?.let{"  •  Tempo $it"+if(result.clockEstimated)" (estimado)" else ""}?:"")
+-        if(result.observedAt>0 && !Evidence14.fresh(SystemClock.elapsedRealtime(),result.observedAt)){
++        val now = SystemClock.elapsedRealtime()
++        if (result.observedAt > 0 && !Evidence14.fresh(now, result.observedAt)) {
+             clearResult("Dados antigos • abra o placar")
+-        }
++            return
++        }
++        if (!expanded) return
++        val age = Evidence14.age(now, result.observedAt)?.let { context.getString(R.string.panel_age_seconds, it / 1000) }
++            ?: context.getString(R.string.panel_no_observation)
++        val frames = context.getString(R.string.panel_frame_age, result.frameCount, age)
++        clock.text = result.matchTime?.let {
++            val time = if (result.clockEstimated) context.getString(R.string.panel_estimated_time, it) else it
++            context.getString(R.string.panel_match_time, frames, time)
++        } ?: frames
      }
      fun remove(){timer.removeCallbacks(tick);if(attached){runCatching{wm.removeView(surface)};attached=false}}
 -    private fun clamp(){
@@ -248,7 +287,7 @@
              };return false
          }
      }
-@@ -260,8 +337,13 @@
+@@ -260,8 +344,13 @@
          text=s;textSize=size.toFloat();setTextColor(color);setPadding(dp(2),dp(2),dp(2),dp(2))
          if(bold)setTypeface(null,Typeface.BOLD)
      }
@@ -435,3 +474,17 @@
          state(status, reason)
      }
  
+--- /dev/null
++++ b/android-app/app/src/main/res/values/panel_strings.xml
+@@ -0,0 +1,11 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="panel_unknown_hero">Não identificado</string>
++    <string name="panel_next_purchase">PRÓXIMA COMPRA RECOMENDADA</string>
++    <string name="panel_waiting_reading">Aguardando leitura atual</string>
++    <string name="panel_no_observation">sem observação</string>
++    <string name="panel_age_seconds">%1$ds</string>
++    <string name="panel_frame_age">Quadros: %1$d  •  Última leitura: %2$s</string>
++    <string name="panel_match_time">%1$s  •  Tempo %2$s</string>
++    <string name="panel_estimated_time">%1$s (estimado)</string>
++</resources>
