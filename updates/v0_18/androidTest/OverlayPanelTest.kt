@@ -1,6 +1,8 @@
 package com.mlbb.assistant
 
-import android.app.UiAutomation
+import android.content.Intent
+import android.content.pm.ActivityInfo
+import android.content.res.Configuration
 import android.content.Context
 import android.graphics.Point
 import android.os.ParcelFileDescriptor
@@ -152,7 +154,16 @@ class OverlayPanelTest {
     }
 
     @Test fun expandedWindowReflowsAfterRotation() {
-        val ui = instrumentation.uiAutomation
+        val activity = instrumentation.startActivitySync(Intent(context, MainActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) as MainActivity
+        fun orient(request: Int, expected: Int) {
+            main { activity.requestedOrientation = request }
+            val deadline = SystemClock.elapsedRealtime() + 7000
+            while (main { activity.resources.configuration.orientation } != expected &&
+                SystemClock.elapsedRealtime() < deadline) SystemClock.sleep(80)
+            assertEquals("Orientação da tela do aplicativo em primeiro plano", expected,
+                main { activity.resources.configuration.orientation })
+        }
         fun size(): Point = main { Point(root().width, root().height) }
         fun awaitSize(predicate: (Point) -> Boolean): Point {
             val deadline = SystemClock.elapsedRealtime() + 7000
@@ -165,15 +176,14 @@ class OverlayPanelTest {
             return current
         }
         try {
-            ui.setRotation(UiAutomation.ROTATION_FREEZE_0)
+            orient(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT, Configuration.ORIENTATION_PORTRAIT)
             main { tap() }
             val portrait = awaitSize { it.x > 0 && it.y > it.x }
-            ui.setRotation(UiAutomation.ROTATION_FREEZE_90)
+            orient(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE, Configuration.ORIENTATION_LANDSCAPE)
             awaitSize { it.x > portrait.x && it.y < portrait.y }
         } finally {
-            ui.setRotation(UiAutomation.ROTATION_FREEZE_0)
+            main { activity.finish() }
             instrumentation.waitForIdleSync()
-            ui.setRotation(UiAutomation.ROTATION_UNFREEZE)
         }
     }
 

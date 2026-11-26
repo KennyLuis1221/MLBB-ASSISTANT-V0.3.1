@@ -19,8 +19,8 @@
   * Sem imagens fictícias, percentuais inventados nem toques no jogo. */
 -class OverlayPanel(private val context:Context,private val onPause:()->Unit,private val onStop:()->Unit) {
 +class OverlayPanel(serviceContext:Context,private val onPause:()->Unit,private val onStop:()->Unit) {
++    private val displays = requireNotNull(serviceContext.getSystemService(DisplayManager::class.java))
 +    private val context = if (Build.VERSION.SDK_INT >= 30) {
-+        val displays = requireNotNull(serviceContext.getSystemService(DisplayManager::class.java))
 +        val display = requireNotNull(displays.getDisplay(android.view.Display.DEFAULT_DISPLAY))
 +        serviceContext.createDisplayContext(display)
 +            .createWindowContext(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY, null)
@@ -28,7 +28,24 @@
      private val wm=context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
      private val navy=0xF50A1526.toInt();private val cyan=0xFF39CFFF.toInt()
      private val gold=0xFFECC16B.toInt();private val white=0xFFF0F6FF.toInt()
-@@ -31,15 +41,32 @@
+@@ -24,6 +34,16 @@
+     private var attached=false;private var expanded=false;private var paused=false
+     private var lastResult:AnalysisResult?=null
+     private val timer=android.os.Handler(android.os.Looper.getMainLooper())
++    private var layoutSize = Point()
++    private val displayChanges = object : DisplayManager.DisplayListener {
++        override fun onDisplayAdded(displayId: Int) = Unit
++        override fun onDisplayRemoved(displayId: Int) = Unit
++        override fun onDisplayChanged(displayId: Int) {
++            if (displayId == android.view.Display.DEFAULT_DISPLAY && attached && availableSize() != layoutSize) {
++                layoutPanel()
++            }
++        }
++    }
+     private val tick=object:Runnable{
+         override fun run(){
+             if(!attached)return
+@@ -31,15 +51,32 @@
              timer.postDelayed(this,1000)
          }
      }
@@ -64,7 +81,7 @@
      private val item=label("Aguardando informações",19,gold,true)
      private val itemArt=ImageView(context).apply { scaleType=ImageView.ScaleType.CENTER_CROP;background=bg(0xFF132C49.toInt(),gold,9);clipToOutline=true }
      private val reason=label("Abra o placar durante a partida.",12,white)
-@@ -55,16 +82,11 @@
+@@ -55,16 +92,11 @@
      private val p=WindowManager.LayoutParams(dp(62),WindowManager.LayoutParams.WRAP_CONTENT,
          WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
          WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
@@ -83,7 +100,7 @@
          surface.addView(header)
          surface.addView(scroll)
          content.addView(card(cyan).apply{addView(status)})
-@@ -89,40 +111,85 @@
+@@ -89,40 +121,87 @@
          content.addView(card(0xFF345776.toInt()).apply{
              addView(clock);addView(diagnostic)
          })
@@ -120,6 +137,7 @@
 +        layoutPanel()
 +        wm.addView(surface, p)
 +        attached = true
++        displays.registerDisplayListener(displayChanges, timer)
 +        timer.post(tick)
 +    }
 +    private fun updateHeading() {
@@ -149,6 +167,7 @@
 +
 +    private fun layoutPanel() {
 +        val size = availableSize()
++        layoutSize = size
 +        val preferred = if (expanded) (size.x * .44).toInt().coerceIn(dp(220), dp(320)) else dp(62)
 +        p.width = minOf(preferred, size.x)
 +        val headerWidth = (p.width - surface.paddingLeft - surface.paddingRight).coerceAtLeast(0)
@@ -185,7 +204,7 @@
          itemArt.setImageDrawable(null)
          itemArt.visibility = View.GONE
          reason.text = ""
-@@ -132,14 +199,20 @@
+@@ -132,14 +211,20 @@
          economy.text = ""
          iaStatus.text = ""
          iaAdvice.text = ""
@@ -207,7 +226,7 @@
              return
          }
          renderExpanded(result)
-@@ -153,12 +226,15 @@
+@@ -153,12 +238,15 @@
      }
  
      private fun renderExpanded(result: AnalysisResult) {
@@ -226,7 +245,7 @@
          item.text=if(result.draftPicks.isNotEmpty())result.draftPicks.mapIndexed{i,s->"${i+1}. $s"}.joinToString("\n") else result.item?:"Aguardando dados"
          val art=result.players.asSequence().mapNotNull{it.itemImages[result.item]}.firstOrNull()
          itemArt.setImageBitmap(art)
-@@ -190,7 +266,7 @@
+@@ -190,7 +278,7 @@
          for(group in groups){
              if(group.rows.isEmpty()&&group.expected==null)continue
              val count=group.expected?.let{"/"+it}?: ""
@@ -235,7 +254,7 @@
              if(group.rows.isEmpty())playerRows.addView(label("Sem observação suficiente.",10,muted))
              for(er in group.rows){
              val r=result.players.singleOrNull{if(er.id!=null)it.playerId==er.id else it.hero==er.hero&&it.team==er.side}?:continue
-@@ -222,31 +298,39 @@
+@@ -222,31 +310,45 @@
          refreshAge(result)
      }
      private fun refreshAge(result:AnalysisResult) {
@@ -247,6 +266,12 @@
 +        if (result.observedAt > 0 && !Evidence14.fresh(now, result.observedAt)) {
              clearResult("Dados antigos • abra o placar")
 -        }
+-    }
+-    fun remove(){timer.removeCallbacks(tick);if(attached){runCatching{wm.removeView(surface)};attached=false}}
+-    private fun clamp(){
+-        val m=context.resources.displayMetrics
+-        p.x=p.x.coerceIn(0,(m.widthPixels-p.width).coerceAtLeast(0))
+-        p.y=p.y.coerceIn(0,(m.heightPixels-(if(expanded) scroll.layoutParams.height+dp(45) else dp(65))).coerceAtLeast(0))
 +            return
 +        }
 +        if (!expanded) return
@@ -257,12 +282,14 @@
 +            val time = if (result.clockEstimated) context.getString(R.string.panel_estimated_time, it) else it
 +            context.getString(R.string.panel_match_time, frames, time)
 +        } ?: frames
-     }
-     fun remove(){timer.removeCallbacks(tick);if(attached){runCatching{wm.removeView(surface)};attached=false}}
--    private fun clamp(){
--        val m=context.resources.displayMetrics
--        p.x=p.x.coerceIn(0,(m.widthPixels-p.width).coerceAtLeast(0))
--        p.y=p.y.coerceIn(0,(m.heightPixels-(if(expanded) scroll.layoutParams.height+dp(45) else dp(65))).coerceAtLeast(0))
++    }
++    fun remove() {
++        if (!attached) return
++        attached = false
++        timer.removeCallbacks(tick)
++        displays.unregisterDisplayListener(displayChanges)
++        wm.removeViewImmediate(surface)
++    }
 +    private fun clamp(size: Point) {
 +        p.x = p.x.coerceIn(0, (size.x - p.width).coerceAtLeast(0))
 +        p.y = p.y.coerceIn(0, (size.y - p.height).coerceAtLeast(0))
@@ -287,7 +314,7 @@
              };return false
          }
      }
-@@ -260,8 +344,13 @@
+@@ -260,8 +362,13 @@
          text=s;textSize=size.toFloat();setTextColor(color);setPadding(dp(2),dp(2),dp(2),dp(2))
          if(bold)setTypeface(null,Typeface.BOLD)
      }
