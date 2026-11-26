@@ -1,0 +1,19 @@
+--- a/android-app/app/build.gradle.kts
++++ b/android-app/app/build.gradle.kts
+@@ -14,6 +14,7 @@
+ 
+     defaultConfig {
+         applicationId = "com.mlbb.assistant"
++        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+         minSdk = 29
+         targetSdk = 35
+         versionCode = 19
+@@ -61,6 +62,8 @@
+ 
+ 
+ dependencies {
++    androidTestImplementation("androidx.test:runner:1.6.2")
++    androidTestImplementation("junit:junit:4.13.2")
+     testImplementation("junit:junit:4.13.2")
+     implementation("com.google.mlkit:text-recognition:16.0.1")
+ }
