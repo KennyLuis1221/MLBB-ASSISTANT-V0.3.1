@@ -160,3 +160,16 @@
          if (!expanded) {
              updateHeading()
              return
+--- a/android-app/app/src/main/java/com/mlbb/assistant/ProjectionService.kt
++++ b/android-app/app/src/main/java/com/mlbb/assistant/ProjectionService.kt
+@@ -429,7 +429,9 @@
+             val activity = event.packageName to event.className
+             when (event.eventType) {
+                 UsageEvents.Event.ACTIVITY_RESUMED -> foregroundActivity = activity
+-                UsageEvents.Event.ACTIVITY_PAUSED, UsageEvents.Event.ACTIVITY_STOPPED ->
++                // A previous instance can stop after its replacement (same class) resumes.
++                // PAUSED tracks loss of focus before that asynchronous teardown.
++                UsageEvents.Event.ACTIVITY_PAUSED ->
+                     if (foregroundActivity == activity) foregroundActivity = null
+             }
+         }
