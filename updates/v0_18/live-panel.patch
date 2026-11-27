@@ -1,0 +1,326 @@
+--- a/android-app/app/src/main/java/com/mlbb/assistant/FrameBudget.kt
++++ b/android-app/app/src/main/java/com/mlbb/assistant/FrameBudget.kt
+@@ -3,7 +3,8 @@
+ internal object FrameBudget {
+     const val INTERVAL_MS = 1_000L
+     const val DEADLINE_MS = 1_000L
+-    const val OCR_MS = 500L
++    const val MAX_RESULT_AGE_MS = 5_000L
++    const val OCR_MS = 4_800L
+ 
+     fun nextDue(now: Long, scheduled: Long): Long =
+         if (scheduled <= 0 || now - scheduled >= INTERVAL_MS) now + INTERVAL_MS else scheduled + INTERVAL_MS
+--- a/android-app/app/src/main/java/com/mlbb/assistant/ProjectionService.kt
++++ b/android-app/app/src/main/java/com/mlbb/assistant/ProjectionService.kt
+@@ -278,15 +278,6 @@
+             if (result.frameValid && active && generation == revision.get()) {
+                 diagnostic.count("quadros_validos")
+             }
+-            if (duration > FrameBudget.DEADLINE_MS) {
+-                ui.post {
+-                    if (active && generation == revision.get()) {
+-                        diagnostic.deadlineExceeded(duration)
+-                        interruptResult("Quadro excedeu 1 s • aguardando nova leitura")
+-                    }
+-                }
+-                return
+-            }
+             if (!active || paused || source !== reader || generation != revision.get()) return
+             if (!gameInForeground()) {
+                 ui.post {
+@@ -297,9 +288,9 @@
+             ui.post {
+                 if (!active || paused || generation != revision.get()) return@post
+                 val finished = SystemClock.elapsedRealtime()
+-                if (!FrameBudget.withinDeadline(finished, now)) {
++                if (finished - now > FrameBudget.MAX_RESULT_AGE_MS) {
+                     diagnostic.deadlineExceeded(finished - now)
+-                    interruptResult("Quadro excedeu 1 s • aguardando nova leitura")
++                    interruptResult("Leitura expirada • aguardando novo quadro")
+                     return@post
+                 }
+                 if (!result.frameValid) {
+@@ -308,28 +299,24 @@
+                     interruptResult(result.status, result.localError)
+                     return@post
+                 }
+-                val completed = result.copy(frameCount = processed + 1)
++                val completed = result.copy(frameCount = ++processed)
+                 publishLocal(completed, generation)
+-                var recorded = false
+-                fun record() {
+-                    if (recorded || !active || generation != revision.get()) return
+-                    recorded = true
+-                    val elapsed = SystemClock.elapsedRealtime() - now
+-                    if (elapsed > FrameBudget.DEADLINE_MS) {
+-                        diagnostic.deadlineExceeded(elapsed)
+-                        if (latestResult === completed)
+-                            interruptResult("Painel ultrapassou 1 s • aguardando nova leitura")
+-                    } else {
+-                        processed++
+-                        diagnostic.analyzed(completed.copy(frameCount = processed), elapsed, duration)
++                diagnostic.analyzed(completed, finished - now, duration)
++                var awaitingCommit = true
++                if (overlay?.afterFrameCommit {
++                    if (awaitingCommit && active && generation == revision.get()) {
++                        awaitingCommit = false
++                        diagnostic.delivery(SystemClock.elapsedRealtime() - now)
+                     }
+-                }
+-                if (overlay?.afterFrameCommit(::record) == true) {
+-                    ui.postDelayed({ if (!recorded) record() }, (FrameBudget.DEADLINE_MS - (SystemClock.elapsedRealtime() - now) + 1).coerceAtLeast(1))
+-                } else {
+-                    diagnostic.count("entrega_visual_sem_medicao")
+-                    diagnostic.state("Painel sem medição de entrega")
+-                }
++                } == true) {
++                    ui.postDelayed({
++                        if (awaitingCommit && active && generation == revision.get()) {
++                            awaitingCommit = false
++                            diagnostic.count("entrega_visual_sem_medicao")
++                        }
++                    }, FrameBudget.DEADLINE_MS)
++                } else diagnostic.count("entrega_visual_sem_medicao")
++
+             }
+         } catch (error: Exception) {
+             reportFrameError(generation, "Erro na análise local", error)
+--- a/android-app/app/src/main/java/com/mlbb/assistant/LiveDiagnostics.kt
++++ b/android-app/app/src/main/java/com/mlbb/assistant/LiveDiagnostics.kt
+@@ -96,11 +96,18 @@
+     }
+ 
+     @Synchronized
++    fun delivery(elapsed: Long) {
++        fields.put("latencia_entrega_ms", elapsed)
++        if (elapsed > FrameBudget.DEADLINE_MS) count("entregas_acima_da_meta")
++        persist()
++    }
++
++    @Synchronized
+     fun deadlineExceeded(duration: Long) {
+         count("quadros_descartados")
+         fields.put("quadros_fora_do_prazo", fields.optInt("quadros_fora_do_prazo") + 1)
+             .put("ultima_latencia_fora_do_prazo_ms", duration)
+-            .put("ultimo_erro", "Quadro excedeu o prazo de 1 s")
++            .put("ultimo_erro", "Leitura expirada antes da publicação")
+         persist(true)
+     }
+ 
+--- a/android-app/app/src/main/java/com/mlbb/assistant/OverlayPanel.kt
++++ b/android-app/app/src/main/java/com/mlbb/assistant/OverlayPanel.kt
+@@ -62,11 +62,16 @@
+         background = bg(navy, gold, 15)
+     }
+     private val heading=label("M",18,gold,true)
++    private val compact = label("Aguardando captura", 11, white).apply {
++        maxLines = 3
++        ellipsize = android.text.TextUtils.TruncateAt.END
++    }
+     private val header = row().apply {
+         gravity = Gravity.CENTER_VERTICAL
+         minimumHeight = dp(48)
+         isFocusable = true
+-        addView(heading, LinearLayout.LayoutParams(0, -2, 1f))
++        addView(heading)
++        addView(compact, LinearLayout.LayoutParams(0, -2, 1f))
+         setOnClickListener { toggle() }
+         setOnTouchListener(Drag())
+     }
+@@ -149,6 +154,7 @@
+         val hasEvidence = data != null &&
+             (data.hero != null || data.players.isNotEmpty() || data.draftPicks.isNotEmpty() || data.item != null)
+         heading.text = if (expanded) "◈  MLBB ASSISTANT   −" else if (hasEvidence) "M •" else "M"
++        compact.visibility = if (expanded) View.GONE else View.VISIBLE
+         header.contentDescription = if (expanded) "Recolher painel" else "Expandir painel"
+     }
+ 
+@@ -172,7 +178,7 @@
+     private fun layoutPanel() {
+         val size = availableSize()
+         layoutSize = size
+-        val preferred = if (expanded) (size.x * .44).toInt().coerceIn(dp(220), dp(320)) else dp(62)
++        val preferred = if (expanded) (size.x * .44).toInt().coerceIn(dp(220), dp(320)) else dp(168)
+         p.width = minOf(preferred, size.x)
+         val headerWidth = (p.width - surface.paddingLeft - surface.paddingRight).coerceAtLeast(0)
+         header.measure(View.MeasureSpec.makeMeasureSpec(headerWidth, View.MeasureSpec.EXACTLY),
+@@ -188,6 +194,7 @@
+ 
+     fun showStatus(message: String) {
+         status.text = message
++        compact.text = message
+     }
+ 
+     fun clearResult(message: String) {
+@@ -223,6 +230,7 @@
+         }
+         lastResult=result
+         status.text=result.status
++        compact.text = listOf("Leitura ${result.frameCount}", result.item ?: result.status).joinToString(" • ")
+         if (!expanded) {
+             updateHeading()
+             return
+--- a/android-app/app/src/main/java/com/mlbb/assistant/ProjectionService.kt
++++ b/android-app/app/src/main/java/com/mlbb/assistant/ProjectionService.kt
+@@ -429,7 +429,9 @@
+             val activity = event.packageName to event.className
+             when (event.eventType) {
+                 UsageEvents.Event.ACTIVITY_RESUMED -> foregroundActivity = activity
+-                UsageEvents.Event.ACTIVITY_PAUSED, UsageEvents.Event.ACTIVITY_STOPPED ->
++                // A previous instance can stop after its replacement (same class) resumes.
++                // PAUSED tracks loss of focus before that asynchronous teardown.
++                UsageEvents.Event.ACTIVITY_PAUSED ->
+                     if (foregroundActivity == activity) foregroundActivity = null
+             }
+         }
+--- a/android-app/app/src/main/java/com/mlbb/assistant/ProjectionService.kt
++++ b/android-app/app/src/main/java/com/mlbb/assistant/ProjectionService.kt
+@@ -74,6 +74,7 @@
+     private var url = ""
+     private var configuredToken = ""
+     private var token = ""
++    private var nextRecoveryAt = 0L
+     private var startedAt = 0L
+     private val cloud = CloudAnalysis()
+     private var currentEvidence: CloudEvidence? = null
+@@ -88,7 +89,16 @@
+             val now = SystemClock.elapsedRealtime()
+             val reference = maxOf(lastFrame, startedAt)
+             if (!paused && contentVisible && now - reference > NO_FRAME_MS) {
+-                interruptResult("Captura sem novos quadros", "Sem novos quadros")
++                val stalled = reader
++                if (stalled != null && now >= nextRecoveryAt) {
++                    nextRecoveryAt = now + 15_000L
++                    try {
++                        resizeSurface(stalled.width, stalled.height, reconnect = true)
++                        overlay?.showStatus("Reconectando captura • aguardando quadro")
++                    } catch (error: Exception) {
++                        interruptResult("Reinicie a captura", error.javaClass.simpleName)
++                    }
++                }
+             }
+             ui.postDelayed(this, 2_000)
+         }
+@@ -193,9 +203,9 @@
+         }
+     }
+ 
+-    private fun resizeSurface(width: Int, height: Int) {
++    private fun resizeSurface(width: Int, height: Int, reconnect: Boolean = false) {
+         val session = projection ?: return
+-        if (width <= 0 || height <= 0 || reader?.let { it.width == width && it.height == height } == true) return
++        if (width <= 0 || height <= 0 || (!reconnect && reader?.let { it.width == width && it.height == height } == true)) return
+         val next = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 3)
+         try {
+             val dpi = resources.displayMetrics.densityDpi
+@@ -206,6 +216,7 @@
+                     DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR, next.surface, null, capture
+                 ))
+             } else {
++                if (reconnect) existing.surface = null
+                 existing.resize(width, height, dpi)
+                 existing.surface = next.surface
+             }
+@@ -226,6 +237,7 @@
+             capture?.post { previous.close() }
+         }
+         next.setOnImageAvailableListener(::captureFrame, capture)
++        capture?.post { captureFrame(next) }
+     }
+ 
+     private fun captureFrame(source: ImageReader) {
+--- a/android-app/app/src/main/java/com/mlbb/assistant/OfflineTextAnalyzer.kt
++++ b/android-app/app/src/main/java/com/mlbb/assistant/OfflineTextAnalyzer.kt
+@@ -16,6 +16,15 @@
+ class OfflineTextAnalyzer(context: Context, replay: Boolean = false) {
+     private val dataset = CatalogStorage.load(context)
+     private val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
++    private var ocrLimit = 1920
++    private var scaleX = 1f
++    private var scaleY = 1f
++
++    private fun frameBox(box: android.graphics.Rect?) = box?.let {
++        android.graphics.Rect((it.left * scaleX).toInt(), (it.top * scaleY).toInt(),
++            (it.right * scaleX).toInt(), (it.bottom * scaleY).toInt())
++    }
++
+     private var ocrTask: Task<Text>? = null
+     private val matcher = DetailedMatcher(context)
+     private val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
+@@ -56,7 +65,7 @@
+             (boundary || screen == ScreenEvidence.UNKNOWN)) {
+             val picks = if (phase == ScreenEvidence.DRAFT) {
+                 val names = lines.mapNotNull { line ->
+-                    val x = line.boundingBox?.centerX() ?: return@mapNotNull null
++                    val x = frameBox(line.boundingBox)?.centerX() ?: return@mapNotNull null
+                     HeroCatalog.find(line.text.trim())?.takeIf { x < b.width * .28 || x > b.width * .72 }
+                 }.distinct()
+                 Strategy13.draft(prefs.getString("lane_hint", "Selva") ?: "Selva", "", "",
+@@ -73,7 +82,7 @@
+         }
+ 
+         val timer = tokens.mapNotNull { token ->
+-            val bounds = token.boundingBox ?: return@mapNotNull null
++            val bounds = frameBox(token.boundingBox) ?: return@mapNotNull null
+             ObservationParser.clockSeconds(token.text)?.takeIf {
+                 bounds.centerY() < b.height * .24 && bounds.centerX() in (b.width / 4)..(b.width * 3 / 4)
+             }
+@@ -81,20 +90,20 @@
+         if (timer != null && screen !in setOf(ScreenEvidence.SHOP, ScreenEvidence.INVENTORY)) match.observeClock(timer, now)
+ 
+         val anchors = tokens.mapNotNull { token ->
+-            val bounds = token.boundingBox ?: return@mapNotNull null
++            val bounds = frameBox(token.boundingBox) ?: return@mapNotNull null
+             if (ObservationParser.kda(listOf(token.text)) != null)
+                 DetailedMatcher.Anchor(bounds.centerX(), bounds.centerY()) else null
+         }
+         val board = if (b.width > b.height && screen !in setOf(ScreenEvidence.SHOP, ScreenEvidence.INVENTORY, ScreenEvidence.DEATH))
+             matcher.board(b, screen == ScreenEvidence.SCOREBOARD, anchors) else DetailedMatcher.Board(emptyList(), 0)
+-        fun inBox(box: Fields15.Box) = tokens.filter { el -> el.boundingBox?.let { q ->
++        fun inBox(box: Fields15.Box) = tokens.filter { el -> frameBox(el.boundingBox)?.let { q ->
+             box.contains(q.centerX().toDouble() / b.width, q.centerY().toDouble() / b.height)
+-        } == true }.sortedBy { it.boundingBox?.left ?: 0 }.map { it.text }
++        } == true }.sortedBy { frameBox(it.boundingBox)?.left ?: 0 }.map { it.text }
+ 
+         val bySide = board.rows.groupBy { it.side }.mapValues { (_, rows) -> rows.sortedBy { it.index }.map { it.centerY } }
+         val readings = board.rows.map { row ->
+             val region = tokens.filter { el ->
+-                val q = el.boundingBox ?: return@filter false
++                val q = frameBox(el.boundingBox) ?: return@filter false
+                 (q.centerX() < b.width / 2) == (row.side == 0) &&
+                     RowBounds.includes(bySide.getValue(row.side), row.index, q.centerY(), (b.height * .05).toInt())
+             }.map { it.text }
+@@ -102,7 +111,7 @@
+                 levelProfile?.compatible(b.width, b.height) == true)
+                 levelProfile.levelBox(boardLayout, row.side, row.index)?.let { Fields15.level(inBox(it)) } else null
+             val named = lines.mapNotNull { line ->
+-                val q = line.boundingBox ?: return@mapNotNull null
++                val q = frameBox(line.boundingBox) ?: return@mapNotNull null
+                 if ((q.centerX() < b.width / 2) == (row.side == 0) &&
+                     abs(q.centerX() - row.centerX) < b.width * .10 &&
+                     RowBounds.includes(bySide.getValue(row.side), row.index, q.centerY(), (b.height * .05).toInt()))
+@@ -181,12 +190,22 @@
+ 
+     private fun readText(frame: Bitmap): Text {
+         check(ocrTask?.isComplete != false) { "OCR ainda ocupado" }
+-        val image = checkNotNull(frame.copy(Bitmap.Config.ARGB_8888, false))
++        val ratio = (ocrLimit.toFloat() / maxOf(frame.width, frame.height)).coerceAtMost(1f)
++        val image = if (ratio == 1f) checkNotNull(frame.copy(Bitmap.Config.ARGB_8888, false))
++            else Bitmap.createScaledBitmap(frame, (frame.width * ratio).toInt().coerceAtLeast(1),
++                (frame.height * ratio).toInt().coerceAtLeast(1), true)
++        scaleX = frame.width.toFloat() / image.width
++        scaleY = frame.height.toFloat() / image.height
+         val task = try { recognizer.process(InputImage.fromBitmap(image, 0)) }
+         catch (error: Exception) { image.recycle(); throw error }
+         ocrTask = task
+         task.addOnCompleteListener({ action -> action.run() }) { image.recycle() }
+-        return Tasks.await(task, FrameBudget.OCR_MS, TimeUnit.MILLISECONDS)
++        return try {
++            Tasks.await(task, FrameBudget.OCR_MS, TimeUnit.MILLISECONDS)
++        } catch (timeout: java.util.concurrent.TimeoutException) {
++            ocrLimit = (minOf(ocrLimit, maxOf(frame.width, frame.height)) * 2 / 3).coerceAtLeast(720)
++            throw timeout
++        }
+     }
+ 
+     private fun failure(message: String) = AnalysisResult(message, null, "Sem leitura suficiente.", 0,

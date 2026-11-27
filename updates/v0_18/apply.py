@@ -19,8 +19,12 @@ def patch(name):
 patch("backend.patch")
 if not args.server_only:
     patch("android.patch")
+    patch("panel.patch")
+    patch("live-panel.patch")
+    patch("panel-tests.patch")
     package = "java/com/mlbb/assistant"
-    for source, kind in (("main", "main"), ("test", "test")):
+    for source, kind in (("main", "main"), ("test", "test"), ("androidTest", "androidTest")):
         destination = Path("android-app/app/src") / kind / package
+        destination.mkdir(parents=True, exist_ok=True)
         for file in (update / source).glob("*.kt"):
             shutil.copy2(file, destination / file.name)
