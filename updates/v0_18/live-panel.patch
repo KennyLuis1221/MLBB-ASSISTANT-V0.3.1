@@ -229,3 +229,98 @@
      }
  
      private fun captureFrame(source: ImageReader) {
+--- a/android-app/app/src/main/java/com/mlbb/assistant/OfflineTextAnalyzer.kt
++++ b/android-app/app/src/main/java/com/mlbb/assistant/OfflineTextAnalyzer.kt
+@@ -16,6 +16,15 @@
+ class OfflineTextAnalyzer(context: Context, replay: Boolean = false) {
+     private val dataset = CatalogStorage.load(context)
+     private val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
++    private var ocrLimit = 1920
++    private var scaleX = 1f
++    private var scaleY = 1f
++
++    private fun frameBox(box: android.graphics.Rect?) = box?.let {
++        android.graphics.Rect((it.left * scaleX).toInt(), (it.top * scaleY).toInt(),
++            (it.right * scaleX).toInt(), (it.bottom * scaleY).toInt())
++    }
++
+     private var ocrTask: Task<Text>? = null
+     private val matcher = DetailedMatcher(context)
+     private val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
+@@ -56,7 +65,7 @@
+             (boundary || screen == ScreenEvidence.UNKNOWN)) {
+             val picks = if (phase == ScreenEvidence.DRAFT) {
+                 val names = lines.mapNotNull { line ->
+-                    val x = line.boundingBox?.centerX() ?: return@mapNotNull null
++                    val x = frameBox(line.boundingBox)?.centerX() ?: return@mapNotNull null
+                     HeroCatalog.find(line.text.trim())?.takeIf { x < b.width * .28 || x > b.width * .72 }
+                 }.distinct()
+                 Strategy13.draft(prefs.getString("lane_hint", "Selva") ?: "Selva", "", "",
+@@ -73,7 +82,7 @@
+         }
+ 
+         val timer = tokens.mapNotNull { token ->
+-            val bounds = token.boundingBox ?: return@mapNotNull null
++            val bounds = frameBox(token.boundingBox) ?: return@mapNotNull null
+             ObservationParser.clockSeconds(token.text)?.takeIf {
+                 bounds.centerY() < b.height * .24 && bounds.centerX() in (b.width / 4)..(b.width * 3 / 4)
+             }
+@@ -81,20 +90,20 @@
+         if (timer != null && screen !in setOf(ScreenEvidence.SHOP, ScreenEvidence.INVENTORY)) match.observeClock(timer, now)
+ 
+         val anchors = tokens.mapNotNull { token ->
+-            val bounds = token.boundingBox ?: return@mapNotNull null
++            val bounds = frameBox(token.boundingBox) ?: return@mapNotNull null
+             if (ObservationParser.kda(listOf(token.text)) != null)
+                 DetailedMatcher.Anchor(bounds.centerX(), bounds.centerY()) else null
+         }
+         val board = if (b.width > b.height && screen !in setOf(ScreenEvidence.SHOP, ScreenEvidence.INVENTORY, ScreenEvidence.DEATH))
+             matcher.board(b, screen == ScreenEvidence.SCOREBOARD, anchors) else DetailedMatcher.Board(emptyList(), 0)
+-        fun inBox(box: Fields15.Box) = tokens.filter { el -> el.boundingBox?.let { q ->
++        fun inBox(box: Fields15.Box) = tokens.filter { el -> frameBox(el.boundingBox)?.let { q ->
+             box.contains(q.centerX().toDouble() / b.width, q.centerY().toDouble() / b.height)
+-        } == true }.sortedBy { it.boundingBox?.left ?: 0 }.map { it.text }
++        } == true }.sortedBy { frameBox(it.boundingBox)?.left ?: 0 }.map { it.text }
+ 
+         val bySide = board.rows.groupBy { it.side }.mapValues { (_, rows) -> rows.sortedBy { it.index }.map { it.centerY } }
+         val readings = board.rows.map { row ->
+             val region = tokens.filter { el ->
+-                val q = el.boundingBox ?: return@filter false
++                val q = frameBox(el.boundingBox) ?: return@filter false
+                 (q.centerX() < b.width / 2) == (row.side == 0) &&
+                     RowBounds.includes(bySide.getValue(row.side), row.index, q.centerY(), (b.height * .05).toInt())
+             }.map { it.text }
+@@ -102,7 +111,7 @@
+                 levelProfile?.compatible(b.width, b.height) == true)
+                 levelProfile.levelBox(boardLayout, row.side, row.index)?.let { Fields15.level(inBox(it)) } else null
+             val named = lines.mapNotNull { line ->
+-                val q = line.boundingBox ?: return@mapNotNull null
++                val q = frameBox(line.boundingBox) ?: return@mapNotNull null
+                 if ((q.centerX() < b.width / 2) == (row.side == 0) &&
+                     abs(q.centerX() - row.centerX) < b.width * .10 &&
+                     RowBounds.includes(bySide.getValue(row.side), row.index, q.centerY(), (b.height * .05).toInt()))
+@@ -181,12 +190,22 @@
+ 
+     private fun readText(frame: Bitmap): Text {
+         check(ocrTask?.isComplete != false) { "OCR ainda ocupado" }
+-        val image = checkNotNull(frame.copy(Bitmap.Config.ARGB_8888, false))
++        val ratio = (ocrLimit.toFloat() / maxOf(frame.width, frame.height)).coerceAtMost(1f)
++        val image = if (ratio == 1f) checkNotNull(frame.copy(Bitmap.Config.ARGB_8888, false))
++            else Bitmap.createScaledBitmap(frame, (frame.width * ratio).toInt().coerceAtLeast(1),
++                (frame.height * ratio).toInt().coerceAtLeast(1), true)
++        scaleX = frame.width.toFloat() / image.width
++        scaleY = frame.height.toFloat() / image.height
+         val task = try { recognizer.process(InputImage.fromBitmap(image, 0)) }
+         catch (error: Exception) { image.recycle(); throw error }
+         ocrTask = task
+         task.addOnCompleteListener({ action -> action.run() }) { image.recycle() }
+-        return Tasks.await(task, FrameBudget.OCR_MS, TimeUnit.MILLISECONDS)
++        return try {
++            Tasks.await(task, FrameBudget.OCR_MS, TimeUnit.MILLISECONDS)
++        } catch (timeout: java.util.concurrent.TimeoutException) {
++            ocrLimit = (minOf(ocrLimit, maxOf(frame.width, frame.height)) * 2 / 3).coerceAtLeast(720)
++            throw timeout
++        }
+     }
+ 
+     private fun failure(message: String) = AnalysisResult(message, null, "Sem leitura suficiente.", 0,
