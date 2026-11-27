@@ -6,7 +6,7 @@
      const val DEADLINE_MS = 1_000L
 -    const val OCR_MS = 500L
 +    const val MAX_RESULT_AGE_MS = 5_000L
-+    const val OCR_MS = 2_500L
++    const val OCR_MS = 4_800L
  
      fun nextDue(now: Long, scheduled: Long): Long =
          if (scheduled <= 0 || now - scheduled >= INTERVAL_MS) now + INTERVAL_MS else scheduled + INTERVAL_MS

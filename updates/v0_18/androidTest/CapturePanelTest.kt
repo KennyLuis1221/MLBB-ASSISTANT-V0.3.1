@@ -45,7 +45,7 @@ class CapturePanelTest {
     private fun await(message: String, test: () -> Boolean) {
         val deadline = SystemClock.elapsedRealtime() + 40_000
         while (!test() && SystemClock.elapsedRealtime() < deadline) SystemClock.sleep(100)
-        assertTrue(message + " • " + state().optString("captura"), test())
+        assertTrue(message + " • " + state().let { listOf("captura", "estado", "ocr", "quadros_processados", "ultimo_erro").map(it::optString) }, test())
     }
 
     @Test fun consentCapturePauseResumeAndStop() {
