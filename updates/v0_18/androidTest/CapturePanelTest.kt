@@ -74,9 +74,11 @@ class CapturePanelTest {
             device.wait(Until.findObject(positive), 5000).click()
             await("Sobreposição do serviço") { main { overlay() != null } }
             await("Recepção de quadros da projeção") { state().optLong("quadros_recebidos") > 0 }
-            val fixture = instrumentation.startActivitySync(Intent(context, MainActivity::class.java)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) as MainActivity
-            try {
+            fun resumed() = androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry.getInstance()
+                .getActivitiesInStage(androidx.test.runner.lifecycle.Stage.RESUMED).filterIsInstance<MainActivity>().lastOrNull()
+            await("Aplicativo em primeiro plano") { main { resumed() != null } }
+            val fixture = main { requireNotNull(resumed()) }
+            run {
                 val board = main {
                     TextView(fixture).apply {
                         text = "VICTORY"
@@ -98,7 +100,7 @@ class CapturePanelTest {
                                 .any { it.isShown && it.text.contains("Resultado final") }
                     }
                 }
-            } finally { main { fixture.finish() } }
+            }
             main {
                 val panel = requireNotNull(overlay())
                 tree(panel).single { it.contentDescription == "Expandir painel" }.performClick()
