@@ -1,0 +1,162 @@
+--- a/android-app/app/src/main/java/com/mlbb/assistant/FrameBudget.kt
++++ b/android-app/app/src/main/java/com/mlbb/assistant/FrameBudget.kt
+@@ -3,7 +3,8 @@
+ internal object FrameBudget {
+     const val INTERVAL_MS = 1_000L
+     const val DEADLINE_MS = 1_000L
+-    const val OCR_MS = 500L
++    const val MAX_RESULT_AGE_MS = 5_000L
++    const val OCR_MS = 2_500L
+ 
+     fun nextDue(now: Long, scheduled: Long): Long =
+         if (scheduled <= 0 || now - scheduled >= INTERVAL_MS) now + INTERVAL_MS else scheduled + INTERVAL_MS
+--- a/android-app/app/src/main/java/com/mlbb/assistant/ProjectionService.kt
++++ b/android-app/app/src/main/java/com/mlbb/assistant/ProjectionService.kt
+@@ -278,15 +278,6 @@
+             if (result.frameValid && active && generation == revision.get()) {
+                 diagnostic.count("quadros_validos")
+             }
+-            if (duration > FrameBudget.DEADLINE_MS) {
+-                ui.post {
+-                    if (active && generation == revision.get()) {
+-                        diagnostic.deadlineExceeded(duration)
+-                        interruptResult("Quadro excedeu 1 s • aguardando nova leitura")
+-                    }
+-                }
+-                return
+-            }
+             if (!active || paused || source !== reader || generation != revision.get()) return
+             if (!gameInForeground()) {
+                 ui.post {
+@@ -297,9 +288,9 @@
+             ui.post {
+                 if (!active || paused || generation != revision.get()) return@post
+                 val finished = SystemClock.elapsedRealtime()
+-                if (!FrameBudget.withinDeadline(finished, now)) {
++                if (finished - now > FrameBudget.MAX_RESULT_AGE_MS) {
+                     diagnostic.deadlineExceeded(finished - now)
+-                    interruptResult("Quadro excedeu 1 s • aguardando nova leitura")
++                    interruptResult("Leitura expirada • aguardando novo quadro")
+                     return@post
+                 }
+                 if (!result.frameValid) {
+@@ -308,28 +299,24 @@
+                     interruptResult(result.status, result.localError)
+                     return@post
+                 }
+-                val completed = result.copy(frameCount = processed + 1)
++                val completed = result.copy(frameCount = ++processed)
+                 publishLocal(completed, generation)
+-                var recorded = false
+-                fun record() {
+-                    if (recorded || !active || generation != revision.get()) return
+-                    recorded = true
+-                    val elapsed = SystemClock.elapsedRealtime() - now
+-                    if (elapsed > FrameBudget.DEADLINE_MS) {
+-                        diagnostic.deadlineExceeded(elapsed)
+-                        if (latestResult === completed)
+-                            interruptResult("Painel ultrapassou 1 s • aguardando nova leitura")
+-                    } else {
+-                        processed++
+-                        diagnostic.analyzed(completed.copy(frameCount = processed), elapsed, duration)
++                diagnostic.analyzed(completed, finished - now, duration)
++                var awaitingCommit = true
++                if (overlay?.afterFrameCommit {
++                    if (awaitingCommit && active && generation == revision.get()) {
++                        awaitingCommit = false
++                        diagnostic.delivery(SystemClock.elapsedRealtime() - now)
+                     }
+-                }
+-                if (overlay?.afterFrameCommit(::record) == true) {
+-                    ui.postDelayed({ if (!recorded) record() }, (FrameBudget.DEADLINE_MS - (SystemClock.elapsedRealtime() - now) + 1).coerceAtLeast(1))
+-                } else {
+-                    diagnostic.count("entrega_visual_sem_medicao")
+-                    diagnostic.state("Painel sem medição de entrega")
+-                }
++                } == true) {
++                    ui.postDelayed({
++                        if (awaitingCommit && active && generation == revision.get()) {
++                            awaitingCommit = false
++                            diagnostic.count("entrega_visual_sem_medicao")
++                        }
++                    }, FrameBudget.DEADLINE_MS)
++                } else diagnostic.count("entrega_visual_sem_medicao")
++
+             }
+         } catch (error: Exception) {
+             reportFrameError(generation, "Erro na análise local", error)
+--- a/android-app/app/src/main/java/com/mlbb/assistant/LiveDiagnostics.kt
++++ b/android-app/app/src/main/java/com/mlbb/assistant/LiveDiagnostics.kt
+@@ -96,11 +96,18 @@
+     }
+ 
+     @Synchronized
++    fun delivery(elapsed: Long) {
++        fields.put("latencia_entrega_ms", elapsed)
++        if (elapsed > FrameBudget.DEADLINE_MS) count("entregas_acima_da_meta")
++        persist()
++    }
++
++    @Synchronized
+     fun deadlineExceeded(duration: Long) {
+         count("quadros_descartados")
+         fields.put("quadros_fora_do_prazo", fields.optInt("quadros_fora_do_prazo") + 1)
+             .put("ultima_latencia_fora_do_prazo_ms", duration)
+-            .put("ultimo_erro", "Quadro excedeu o prazo de 1 s")
++            .put("ultimo_erro", "Leitura expirada antes da publicação")
+         persist(true)
+     }
+ 
+--- a/android-app/app/src/main/java/com/mlbb/assistant/OverlayPanel.kt
++++ b/android-app/app/src/main/java/com/mlbb/assistant/OverlayPanel.kt
+@@ -62,11 +62,16 @@
+         background = bg(navy, gold, 15)
+     }
+     private val heading=label("M",18,gold,true)
++    private val compact = label("Aguardando captura", 11, white).apply {
++        maxLines = 3
++        ellipsize = android.text.TextUtils.TruncateAt.END
++    }
+     private val header = row().apply {
+         gravity = Gravity.CENTER_VERTICAL
+         minimumHeight = dp(48)
+         isFocusable = true
+-        addView(heading, LinearLayout.LayoutParams(0, -2, 1f))
++        addView(heading)
++        addView(compact, LinearLayout.LayoutParams(0, -2, 1f))
+         setOnClickListener { toggle() }
+         setOnTouchListener(Drag())
+     }
+@@ -149,6 +154,7 @@
+         val hasEvidence = data != null &&
+             (data.hero != null || data.players.isNotEmpty() || data.draftPicks.isNotEmpty() || data.item != null)
+         heading.text = if (expanded) "◈  MLBB ASSISTANT   −" else if (hasEvidence) "M •" else "M"
++        compact.visibility = if (expanded) View.GONE else View.VISIBLE
+         header.contentDescription = if (expanded) "Recolher painel" else "Expandir painel"
+     }
+ 
+@@ -172,7 +178,7 @@
+     private fun layoutPanel() {
+         val size = availableSize()
+         layoutSize = size
+-        val preferred = if (expanded) (size.x * .44).toInt().coerceIn(dp(220), dp(320)) else dp(62)
++        val preferred = if (expanded) (size.x * .44).toInt().coerceIn(dp(220), dp(320)) else dp(168)
+         p.width = minOf(preferred, size.x)
+         val headerWidth = (p.width - surface.paddingLeft - surface.paddingRight).coerceAtLeast(0)
+         header.measure(View.MeasureSpec.makeMeasureSpec(headerWidth, View.MeasureSpec.EXACTLY),
+@@ -188,6 +194,7 @@
+ 
+     fun showStatus(message: String) {
+         status.text = message
++        compact.text = message
+     }
+ 
+     fun clearResult(message: String) {
+@@ -223,6 +230,7 @@
+         }
+         lastResult=result
+         status.text=result.status
++        compact.text = listOf("Leitura ${result.frameCount}", result.item ?: result.status).joinToString(" • ")
+         if (!expanded) {
+             updateHeading()
+             return

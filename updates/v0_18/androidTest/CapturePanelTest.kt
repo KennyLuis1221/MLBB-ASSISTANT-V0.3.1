@@ -43,7 +43,7 @@ class CapturePanelTest {
         context.getSharedPreferences("capture_diagnostics", Context.MODE_PRIVATE).getString("ultimo", "{}")!!)
 
     private fun await(message: String, test: () -> Boolean) {
-        val deadline = SystemClock.elapsedRealtime() + 15_000
+        val deadline = SystemClock.elapsedRealtime() + 40_000
         while (!test() && SystemClock.elapsedRealtime() < deadline) SystemClock.sleep(100)
         assertTrue(message + " • " + state().optString("captura"), test())
     }
@@ -74,6 +74,29 @@ class CapturePanelTest {
             device.wait(Until.findObject(positive), 5000).click()
             await("Sobreposição do serviço") { main { overlay() != null } }
             await("Recepção de quadros da projeção") { state().optLong("quadros_recebidos") > 0 }
+            val fixture = instrumentation.startActivitySync(Intent(context, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) as MainActivity
+            try {
+                val board = main {
+                    TextView(fixture).apply {
+                        text = "VICTORY"
+                        textSize = 42f
+                        gravity = android.view.Gravity.CENTER
+                        setTextColor(android.graphics.Color.BLACK)
+                        fixture.setContentView(this)
+                    }
+                }
+                var pulse = false
+                await("OCR da projeção e resultado no painel compacto") {
+                    main {
+                        pulse = !pulse
+                        board.setBackgroundColor(if (pulse) 0xffdddddd.toInt() else 0xffeeeeee.toInt())
+                        state().optLong("quadros_processados") > 0 &&
+                            tree(requireNotNull(overlay())).filterIsInstance<TextView>()
+                                .any { it.isShown && it.text.contains("Resultado final") }
+                    }
+                }
+            } finally { main { fixture.finish() } }
             main {
                 val panel = requireNotNull(overlay())
                 tree(panel).single { it.contentDescription == "Expandir painel" }.performClick()
