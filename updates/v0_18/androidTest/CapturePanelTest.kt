@@ -73,7 +73,6 @@ class CapturePanelTest {
             }
             device.wait(Until.findObject(positive), 5000).click()
             await("Sobreposição do serviço") { main { overlay() != null } }
-            await("Recepção de quadros da projeção") { state().optLong("quadros_recebidos") > 0 }
             fun resumed() = androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry.getInstance()
                 .getActivitiesInStage(androidx.test.runner.lifecycle.Stage.RESUMED).filterIsInstance<MainActivity>().lastOrNull()
             await("Aplicativo em primeiro plano") { main { resumed() != null } }
@@ -95,7 +94,7 @@ class CapturePanelTest {
                         board.background = android.graphics.drawable.GradientDrawable(
                             android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
                             intArrayOf(if (pulse) 0xffaaaaaa.toInt() else 0xffbbbbbb.toInt(), -1))
-                        state().optLong("quadros_processados") > 0 &&
+                        state().optLong("quadros_recebidos") > 0 && state().optLong("quadros_processados") > 0 &&
                             tree(requireNotNull(overlay())).filterIsInstance<TextView>()
                                 .any { it.isShown && it.text.contains("Resultado final") }
                     }
