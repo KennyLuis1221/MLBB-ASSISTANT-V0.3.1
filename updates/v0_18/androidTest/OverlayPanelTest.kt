@@ -42,7 +42,7 @@ class OverlayPanelTest {
         (it.layoutParams as? WindowManager.LayoutParams)?.type == WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
     }
 
-    private fun label(text: String) = views(root()).filterIsInstance<TextView>().single { it.text.toString() == text }
+    private fun label(text: String) = views(root()).filterIsInstance<TextView>().single { it.isShown && it.text.toString() == text }
     private fun header(): View = views(root()).filterIsInstance<TextView>().first().parent as View
     private fun scroll() = views(root()).filterIsInstance<ScrollView>().single()
 

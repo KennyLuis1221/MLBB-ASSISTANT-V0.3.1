@@ -90,7 +90,9 @@ class CapturePanelTest {
                 await("OCR da projeção e resultado no painel compacto") {
                     main {
                         pulse = !pulse
-                        board.setBackgroundColor(if (pulse) 0xffdddddd.toInt() else 0xffeeeeee.toInt())
+                        board.background = android.graphics.drawable.GradientDrawable(
+                            android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
+                            intArrayOf(if (pulse) 0xffaaaaaa.toInt() else 0xffbbbbbb.toInt(), -1))
                         state().optLong("quadros_processados") > 0 &&
                             tree(requireNotNull(overlay())).filterIsInstance<TextView>()
                                 .any { it.isShown && it.text.contains("Resultado final") }
