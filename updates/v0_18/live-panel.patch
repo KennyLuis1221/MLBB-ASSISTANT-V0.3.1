@@ -173,3 +173,59 @@
                      if (foregroundActivity == activity) foregroundActivity = null
              }
          }
+--- a/android-app/app/src/main/java/com/mlbb/assistant/ProjectionService.kt
++++ b/android-app/app/src/main/java/com/mlbb/assistant/ProjectionService.kt
+@@ -74,6 +74,7 @@
+     private var url = ""
+     private var configuredToken = ""
+     private var token = ""
++    private var nextRecoveryAt = 0L
+     private var startedAt = 0L
+     private val cloud = CloudAnalysis()
+     private var currentEvidence: CloudEvidence? = null
+@@ -88,7 +89,16 @@
+             val now = SystemClock.elapsedRealtime()
+             val reference = maxOf(lastFrame, startedAt)
+             if (!paused && contentVisible && now - reference > NO_FRAME_MS) {
+-                interruptResult("Captura sem novos quadros", "Sem novos quadros")
++                val stalled = reader
++                if (stalled != null && now >= nextRecoveryAt) {
++                    nextRecoveryAt = now + 15_000L
++                    try {
++                        resizeSurface(stalled.width, stalled.height, reconnect = true)
++                        overlay?.showStatus("Reconectando captura • aguardando quadro")
++                    } catch (error: Exception) {
++                        interruptResult("Reinicie a captura", error.javaClass.simpleName)
++                    }
++                }
+             }
+             ui.postDelayed(this, 2_000)
+         }
+@@ -193,9 +203,9 @@
+         }
+     }
+ 
+-    private fun resizeSurface(width: Int, height: Int) {
++    private fun resizeSurface(width: Int, height: Int, reconnect: Boolean = false) {
+         val session = projection ?: return
+-        if (width <= 0 || height <= 0 || reader?.let { it.width == width && it.height == height } == true) return
++        if (width <= 0 || height <= 0 || (!reconnect && reader?.let { it.width == width && it.height == height } == true)) return
+         val next = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 3)
+         try {
+             val dpi = resources.displayMetrics.densityDpi
+@@ -206,6 +216,7 @@
+                     DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR, next.surface, null, capture
+                 ))
+             } else {
++                if (reconnect) existing.surface = null
+                 existing.resize(width, height, dpi)
+                 existing.surface = next.surface
+             }
+@@ -226,6 +237,7 @@
+             capture?.post { previous.close() }
+         }
+         next.setOnImageAvailableListener(::captureFrame, capture)
++        capture?.post { captureFrame(next) }
+     }
+ 
+     private fun captureFrame(source: ImageReader) {
